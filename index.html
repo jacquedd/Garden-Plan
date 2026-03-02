@@ -52,8 +52,45 @@
   .element-btn .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; margin-left: auto; }
   .el-count { padding: 2px 12px 4px; font-size: 10px; color: #8a9a8a; }
 
-  .sel-panel { padding: 12px; border-top: 1px solid #e8ede8; background: #f8faf5; }
-  .sel-panel .sel-info { font-size: 11px; color: #6b7c6b; margin-bottom: 8px; }
+  .sel-panel { display:none; } /* legacy, hidden */
+  /* Floating popover toolbar */
+  .float-toolbar {
+    position: absolute; z-index: 200; display: none;
+    background: rgba(255,252,245,0.97); border: 1.5px solid #d4dcd4; border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.1);
+    padding: 6px 8px; pointer-events: auto;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .float-toolbar.visible { display: block; }
+  .float-toolbar .ft-label {
+    font-size: 10px; font-weight: 700; color: #2d4a2d; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px; padding: 0 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+  }
+  .float-toolbar .ft-label .ft-sub { font-weight: 400; color: #8a9a8a; font-size: 9px; }
+  .float-toolbar .ft-row { display: flex; gap: 3px; align-items: center; }
+  .float-toolbar .ft-btn {
+    width: 30px; height: 28px; border-radius: 6px; border: 1px solid #e0e6e0;
+    background: #fff; color: #6b7c6b; font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+    transition: all 0.1s;
+  }
+  .float-toolbar .ft-btn:hover { border-color: #5D8233; color: #2d4a2d; background: #eef5e5; }
+  .float-toolbar .ft-btn.danger:hover { border-color: #e57373; color: #c62828; background: #fce4ec; }
+  .float-toolbar .ft-btn.active { background: #eef5e5; border-color: #5D8233; color: #2d4a2d; }
+  .float-toolbar .ft-sep { width: 1px; height: 20px; background: #e0e6e0; margin: 0 2px; }
+  .float-toolbar .ft-color { width: 22px; height: 22px; border: 1.5px solid #d4dcd4; border-radius: 5px; cursor: pointer; padding: 0; background: none; }
+  .float-toolbar .ft-badge { font-size: 8px; padding: 1px 5px; border-radius: 4px; font-weight: 600; white-space: nowrap; }
+  .float-toolbar .ft-dims {
+    display: flex; align-items: center; gap: 3px; margin-top: 5px; padding-top: 5px; border-top: 1px solid #e8ede8;
+  }
+  .float-toolbar .ft-dims label { font-size: 9px; font-weight: 700; color: #8a9a8a; }
+  .float-toolbar .ft-input {
+    width: 40px; padding: 3px 4px; border: 1px solid #d4dcd4; border-radius: 4px;
+    font-size: 11px; font-family: Georgia, serif; color: #2d4a2d; background: #fff;
+    outline: none; text-align: center;
+  }
+  .float-toolbar .ft-input:focus { border-color: #5D8233; }
   .dim-row { display: flex; gap: 6px; margin-bottom: 6px; }
   .dim-row > div { flex: 1; }
   .dim-row label { display: block; font-size: 10px; font-weight: 600; color: #7b8d7b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -323,60 +360,16 @@
     </div>
 
     <div class="sel-panel" id="sel-panel" style="display:none">
-      <div class="sel-info" id="sel-info"></div>
-      <div id="sel-group-info" style="display:none;margin-bottom:6px;padding:4px 8px;background:#E3F2FD;border-radius:6px;font-size:10px;color:#1565C0;font-weight:600">🔗 Grouped</div>
-      <div id="sel-multi-info" style="display:none;margin-bottom:6px;padding:4px 8px;background:#FFF3E0;border-radius:6px;font-size:10px;color:#E65100;font-weight:600"></div>
-      <div class="dim-row" style="margin-bottom:6px">
-        <div style="flex:2"><label>Name</label><input type="text" class="dim-input" id="sel-name" style="text-align:left;padding-left:6px" onchange="changeSelectedName(this.value)"></div>
-        <div style="flex:0 0 48px;position:relative"><label>Icon</label><input type="text" class="dim-input" id="sel-icon" style="font-size:16px;cursor:pointer" maxlength="2" onchange="changeSelectedIcon(this.value)" onclick="toggleIconPicker()" readonly></div>
-      </div>
-      <div id="icon-picker" style="display:none;max-height:160px;overflow-y:auto;border:1.5px solid #d4dcd4;border-radius:8px;background:#fff;padding:6px;margin-bottom:6px">
-        <input type="text" id="icon-search" placeholder="Search icons..." style="width:100%;padding:4px 8px;border:1px solid #d4dcd4;border-radius:4px;font-size:10px;margin-bottom:4px;outline:none" oninput="filterIcons()">
-        <div id="icon-grid" style="display:flex;flex-wrap:wrap;gap:2px"></div>
-      </div>
-      <div class="color-row"><label>Color</label><input type="color" class="color-pick" id="sel-color" onchange="changeSelectedColor(this.value)"></div>
-      <div class="dim-row" id="pos-row">
-        <div><label>X (ft)</label><input type="number" class="dim-input" id="sel-x" min="0" max="999" onchange="setSelPos('x',this.value)" onfocus="this.select()"></div>
-        <div><label>Y (ft)</label><input type="number" class="dim-input" id="sel-y" min="0" max="999" onchange="setSelPos('y',this.value)" onfocus="this.select()"></div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto">
-          <label style="font-size:8px">&nbsp;</label>
-          <div style="display:grid;grid-template-columns:20px 20px 20px;grid-template-rows:18px 18px;gap:1px">
-            <div></div>
-            <button class="nudge-btn" onclick="nudgeSel(0,-1)" title="Nudge up">▲</button>
-            <div></div>
-            <button class="nudge-btn" onclick="nudgeSel(-1,0)" title="Nudge left">◀</button>
-            <button class="nudge-btn" onclick="nudgeSel(0,1)" title="Nudge down">▼</button>
-            <button class="nudge-btn" onclick="nudgeSel(1,0)" title="Nudge right">▶</button>
-          </div>
-        </div>
-      </div>
-      <div class="dim-row" id="dim-row">
-        <div><label>Width (ft)</label><input type="number" class="dim-input" id="sel-width" min="1" max="200" onchange="setSelDim('w',this.value)" onfocus="this.select()"></div>
-        <div><label>Depth (ft)</label><input type="number" class="dim-input" id="sel-height" min="1" max="200" onchange="setSelDim('h',this.value)" onfocus="this.select()"></div>
-      </div>
-      <div class="dim-row" style="margin-bottom:4px">
-        <div style="flex:1;display:flex;gap:4px;align-items:center">
-          <label style="font-size:10px;font-weight:600;color:#7b8d7b;white-space:nowrap">LAYER</label>
-          <button class="action-btn" style="flex:0;padding:4px 7px;border:1px solid #d4dcd4;background:#fff;color:#6b7c6b;font-size:10px" onclick="layerMove(-1)" title="Send Back">▼</button>
-          <button class="action-btn" style="flex:0;padding:4px 7px;border:1px solid #d4dcd4;background:#fff;color:#6b7c6b;font-size:10px" onclick="layerMove(1)" title="Bring Forward">▲</button>
-          <button class="action-btn" style="flex:0;padding:4px 7px;border:1px solid #d4dcd4;background:#fff;color:#6b7c6b;font-size:9px" onclick="layerMove(-99)" title="Send to Back">⇊</button>
-          <button class="action-btn" style="flex:0;padding:4px 7px;border:1px solid #d4dcd4;background:#fff;color:#6b7c6b;font-size:9px" onclick="layerMove(99)" title="Bring to Front">⇈</button>
-        </div>
-      </div>
-      <div class="dim-row" id="edit-shape-row" style="display:none">
-        <button class="action-btn" style="flex:1;border:1.5px solid #AB47BC;background:#F3E5F5;color:#7B1FA2;font-weight:700" onclick="startEditShape()">✏️ Edit Shape</button>
-      </div>
-      <div class="dim-row" id="convert-row" style="display:none">
-        <button class="action-btn" style="flex:1;border:1.5px solid #00897B;background:#E0F2F1;color:#00695C;font-weight:600" onclick="convertToFreeform()">🔄 Convert to Freeform</button>
-      </div>
-      <div class="dim-row">
-        <button class="action-btn" style="border:1.5px solid #e57373;background:#fff;color:#c62828;" onclick="deleteSelected()">🗑</button>
-        <button class="action-btn" style="border:1.5px solid #5D8233;background:#fff;color:#5D8233;" onclick="duplicateSelected()">📋</button>
-        <button class="action-btn" id="rotate-btn" style="border:1.5px solid #FFD600;background:#fff;color:#9e8600;" onclick="rotateSelected()" title="Rotate 45° clockwise">↻ 45°</button>
-        <button class="action-btn" id="rotate-ccw-btn" style="border:1.5px solid #FFD600;background:#fff;color:#9e8600;" onclick="rotateCCW()" title="Rotate 45° counter-clockwise">↺</button>
-        <button class="action-btn" id="lock-btn" style="border:1.5px solid #78909C;background:#fff;color:#546E7A;" onclick="toggleLock()">🔒</button>
-        <button class="action-btn" id="group-btn" style="border:1.5px solid #64B5F6;background:#fff;color:#1565C0;" onclick="groupSelected()">🔗</button>
-      </div>
+      <div id="sel-group-info" style="display:none"></div>
+      <div id="sel-multi-info" style="display:none"></div>
+      <input type="hidden" id="sel-name"><input type="hidden" id="sel-icon"><input type="hidden" id="sel-color">
+      <input type="hidden" id="sel-x"><input type="hidden" id="sel-y"><input type="hidden" id="sel-width"><input type="hidden" id="sel-height">
+      <span id="sel-info" style="display:none"></span>
+      <span id="pos-row" style="display:none"></span><span id="dim-row" style="display:none"></span>
+      <span id="edit-shape-row" style="display:none"></span><span id="convert-row" style="display:none"></span>
+      <span id="rotate-btn" style="display:none"></span><span id="rotate-ccw-btn" style="display:none"></span>
+      <span id="lock-btn" style="display:none"></span><span id="group-btn" style="display:none"></span>
+      <div id="icon-picker" style="display:none"><input type="text" id="icon-search" oninput="filterIcons()"><div id="icon-grid"></div></div>
     </div>
     <div class="controls">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chk-labels" checked> Labels</label>
@@ -406,6 +399,32 @@
       </div>
     </div>
     <div id="canvas"></div>
+    <div class="float-toolbar" id="float-toolbar" onmousedown="event.stopPropagation()">
+      <div class="ft-label" id="ft-label"></div>
+      <div class="ft-row">
+        <input type="color" class="ft-color" id="ft-color" onchange="changeSelectedColor(this.value)" title="Color">
+        <div class="ft-sep"></div>
+        <button class="ft-btn" onclick="deleteSelected()" title="Delete (Del)">🗑</button>
+        <button class="ft-btn" onclick="duplicateSelected()" title="Duplicate (Ctrl+D)">📋</button>
+        <button class="ft-btn" onclick="rotateSelected()" title="Rotate 45° (↻)">↻</button>
+        <button class="ft-btn" onclick="rotateCCW()" title="Rotate -45° (↺)">↺</button>
+        <div class="ft-sep"></div>
+        <button class="ft-btn" id="ft-lock" onclick="toggleLock()" title="Lock/Unlock">🔒</button>
+        <button class="ft-btn" id="ft-group" onclick="groupSelected()" title="Group (Ctrl+G)">🔗</button>
+        <div class="ft-sep"></div>
+        <button class="ft-btn" onclick="layerMove(-1)" title="Send Back">▼</button>
+        <button class="ft-btn" onclick="layerMove(1)" title="Bring Forward">▲</button>
+        <div class="ft-sep" id="ft-sep-extra"></div>
+        <button class="ft-btn" id="ft-edit-shape" style="display:none" onclick="startEditShape()" title="Edit Shape">✏️</button>
+        <button class="ft-btn" id="ft-convert" style="display:none" onclick="convertToFreeform()" title="Convert to Freeform">🔄</button>
+      </div>
+      <div class="ft-dims" id="ft-dims">
+        <label>X</label><input type="number" class="ft-input" id="ft-x" min="0" onchange="setSelPos('x',this.value)" onfocus="this.select()">
+        <label>Y</label><input type="number" class="ft-input" id="ft-y" min="0" onchange="setSelPos('y',this.value)" onfocus="this.select()">
+        <span id="ft-wh-group"><label>W</label><input type="number" class="ft-input" id="ft-w" min="1" onchange="setSelDim('w',this.value)" onfocus="this.select()">
+        <label>H</label><input type="number" class="ft-input" id="ft-h" min="1" onchange="setSelDim('h',this.value)" onfocus="this.select()"></span>
+      </div>
+    </div>
     <div class="house-bar" id="house-bar">🏠 HOUSE <span onclick="toggleHouse()" style="margin-left:8px;cursor:pointer;opacity:0.6;font-size:9px" title="Hide house bar">✕</span></div>
     <div class="hint" id="hint-text">Click to select • Drag to move • Scroll to zoom • Space+drag to pan • Arrow keys nudge • Ctrl+G group • [ ] layers • Ctrl+D dup • Del remove</div>
   </div>
@@ -1164,6 +1183,100 @@ function updateSelPanel(){
     document.getElementById("group-btn").textContent=ff.groupId?"🔓":"🔗";
   }
   if(objPanelOpen&&!_isDragActive)renderObjList();
+  updateFloatToolbar();
+}
+function updateFloatToolbar(){
+  const ft=document.getElementById("float-toolbar");
+  const area=document.querySelector(".canvas-area");
+  if(!selectedId||mode!=="place"){ft.classList.remove("visible");return}
+  // Get object bounds
+  let ox,oy,ow,oh,label,icon,color,isLocked=false,hasGroup=false,isFreeform=false;
+  if(selectedType==="note"){
+    const n=notes.find(x=>x.uid===selectedId);
+    if(!n){ft.classList.remove("visible");return}
+    ox=n.x;oy=n.y;ow=100;oh=32;label="Note";icon="📝";color="#FFF9C4";
+  } else if(selectedType==="prefab"){
+    const el=elements.find(e=>e.uid===selectedId);
+    if(!el){ft.classList.remove("visible");return}
+    ox=el.x;oy=el.y;ow=el.w*GS;oh=el.h*GS;
+    label=el.label;icon=el.icon;color=el.color;isLocked=el.locked;hasGroup=!!el.groupId;
+  } else {
+    const ff=freeforms.find(f=>f.uid===selectedId);
+    if(!ff){ft.classList.remove("visible");return}
+    let mnX=1e9,mnY=1e9,mxX=-1,mxY=-1;
+    ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy;if(gx>mxX)mxX=gx;if(gy>mxY)mxY=gy});
+    ox=mnX*GS;oy=mnY*GS;ow=(mxX-mnX+1)*GS;oh=(mxY-mnY+1)*GS;
+    label=ff.label;icon=ff.icon;color=ff.color;isLocked=ff.locked;hasGroup=!!ff.groupId;isFreeform=true;
+  }
+  // Build label
+  const ftLabel=document.getElementById("ft-label");
+  const dims=selectedType==="prefab"?`${Math.round(ow/GS)}×${Math.round(oh/GS)} ft`:(selectedType==="freeform"?`${freeforms.find(f=>f.uid===selectedId)?.cells.size||0} sq ft`:"");
+  let badges="";
+  if(isLocked) badges+=` <span class="ft-badge" style="background:#ECEFF1;color:#546E7A">🔒</span>`;
+  if(hasGroup) badges+=` <span class="ft-badge" style="background:#E3F2FD;color:#1565C0">🔗</span>`;
+  if(multiSel.size>1) badges+=` <span class="ft-badge" style="background:#FFF3E0;color:#E65100">⊞ ${multiSel.size}</span>`;
+  ftLabel.innerHTML=`${icon} ${label} <span class="ft-sub">${dims}</span>${badges}`;
+  // Color
+  document.getElementById("ft-color").value=color;
+  // Lock button state
+  document.getElementById("ft-lock").textContent=isLocked?"🔓":"🔒";
+  document.getElementById("ft-group").textContent=hasGroup?"✂️":"🔗";
+  // Show/hide freeform-specific buttons
+  document.getElementById("ft-edit-shape").style.display=isFreeform?"flex":"none";
+  document.getElementById("ft-convert").style.display=(!isFreeform&&selectedType==="prefab")?"flex":"none";
+  document.getElementById("ft-sep-extra").style.display=(isFreeform||selectedType==="prefab")?"":"none";
+  // Dimension inputs
+  const whGroup=document.getElementById("ft-wh-group");
+  if(selectedType==="prefab"){
+    const el=elements.find(e=>e.uid===selectedId);
+    if(el){
+      document.getElementById("ft-x").value=Math.round(el.x/GS);
+      document.getElementById("ft-y").value=Math.round(el.y/GS);
+      document.getElementById("ft-w").value=el.w;
+      document.getElementById("ft-h").value=el.h;
+      whGroup.style.display="contents";
+    }
+  } else if(selectedType==="freeform"){
+    const ff=freeforms.find(f=>f.uid===selectedId);
+    if(ff){
+      let mnX=1e9,mnY=1e9;
+      ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy});
+      document.getElementById("ft-x").value=mnX;
+      document.getElementById("ft-y").value=mnY;
+      whGroup.style.display="none";
+    }
+  } else {
+    // note
+    const n=notes.find(x=>x.uid===selectedId);
+    if(n){
+      document.getElementById("ft-x").value=Math.round(n.x/GS);
+      document.getElementById("ft-y").value=Math.round(n.y/GS);
+      whGroup.style.display="none";
+    }
+  }
+  document.getElementById("ft-dims").style.display=(selectedType==="note")?"none":"flex";
+  // Position: above the selected object, centered horizontally
+  ft.classList.add("visible");
+  const ftW=ft.offsetWidth, ftH=ft.offsetHeight;
+  const cv=document.getElementById("canvas");
+  const cvOff=cv.offsetLeft||0, cvTop=cv.offsetTop||0;
+  // Object position in viewport coords (relative to canvas-area)
+  const objCenterX=cvOff+ox*zoom+ow*zoom/2;
+  const objTopY=cvTop+oy*zoom;
+  // Place above the object with some gap
+  let left=objCenterX-ftW/2;
+  let top=objTopY-ftH-12;
+  // If too high, place below
+  if(top-area.scrollTop<52) top=cvTop+oy*zoom+oh*zoom+12;
+  // Clamp within canvas-area viewport
+  const viewLeft=area.scrollLeft;
+  const viewTop=area.scrollTop;
+  const viewRight=viewLeft+area.clientWidth;
+  const viewBottom=viewTop+area.clientHeight;
+  left=Math.max(viewLeft+4, Math.min(viewRight-ftW-4, left));
+  top=Math.max(viewTop+52, Math.min(viewBottom-ftH-4, top));
+  ft.style.left=left+"px";
+  ft.style.top=top+"px";
 }
 function changeSelectedName(v){
   if(!v.trim())return;
@@ -1426,6 +1539,7 @@ function startEditShape(){
   document.getElementById("measure-panel").style.display="none";
   document.getElementById("note-panel").style.display="none";
   document.getElementById("sel-panel").style.display="none";
+  document.getElementById("float-toolbar").classList.remove("visible");
   document.getElementById("edit-shape-panel").style.display="block";
   document.getElementById("esp-name").textContent=(ff.icon?ff.icon+" ":"")+ff.label;
   document.getElementById("canvas").className="draw-mode";
@@ -1721,6 +1835,7 @@ function gcp(e){const r=getCv().getBoundingClientRect();return{x:(e.clientX-r.le
 let _snapped=false,_isDragActive=false;
 function onDown(e){
   if(spaceHeld||isPanning)return;
+  document.getElementById("float-toolbar").classList.remove("visible");
   const pos=gcp(e),ha=e.target.dataset?.handle;
   const shift=e.shiftKey;
   _snapped=false;
@@ -1904,14 +2019,59 @@ function recalcGS(){
 
 // ═══ SAVE/LOAD ═══
 let saves=[];
-function ser(){return{config:{...config},elements:elements.map(e=>({...e,x:Math.round(e.x/GS),y:Math.round(e.y/GS)})),freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,locked:ff.locked||false,cells:[...ff.cells]})),notes:notes.map(n=>({...n,x:Math.round(n.x/GS*10)/10,y:Math.round(n.y/GS*10)/10})),nextUid,nextGroupId}}
+function ser(){
+  // Compact format: short keys, omit defaults
+  const pt=PREFAB_TYPES;
+  const ce=elements.map(e=>{
+    const o={u:e.uid,i:e.id,x:Math.round(e.x/GS),y:Math.round(e.y/GS),w:e.w,h:e.h};
+    // Only store non-default values
+    const ref=pt.find(p=>p.id===e.id);
+    if(!ref||e.label!==ref.label) o.l=e.label;
+    if(!ref||e.icon!==ref.icon) o.ic=e.icon;
+    if(!ref||e.color!==ref.color) o.c=e.color;
+    if(!ref||e.cat!==ref.cat) o.ca=e.cat;
+    if(e.rot) o.r=e.rot;
+    if(e.zOff) o.z=e.zOff;
+    if(e.groupId) o.g=e.groupId;
+    if(e.locked) o.lk=1;
+    return o;
+  });
+  const cf=freeforms.map(ff=>{
+    const o={u:ff.uid,i:ff.id,c:ff.color,cl:[...ff.cells].join("|")};
+    if(ff.label) o.l=ff.label;
+    if(ff.icon) o.ic=ff.icon;
+    if(ff.cat&&ff.cat!=="other") o.ca=ff.cat;
+    if(ff.zOff) o.z=ff.zOff;
+    if(ff.groupId) o.g=ff.groupId;
+    if(ff.locked) o.lk=1;
+    return o;
+  });
+  const cn=(notes||[]).map(n=>({u:n.uid,x:+(n.x/GS).toFixed(1),y:+(n.y/GS).toFixed(1),t:n.text}));
+  return{v:2,cfg:{w:config.width,h:config.height,d:config.northDir},e:ce,f:cf,n:cn,nu:nextUid,ng:nextGroupId};
+}
 function deser(d){
-  config=d.config;
-  freeforms=(d.freeforms||[]).map(ff=>({...ff,cells:new Set(ff.cells)}));
-  nextUid=d.nextUid||1;nextGroupId=d.nextGroupId||1;selectedId=null;selectedType=null;multiSel.clear();
-  calcGS();
-  elements=(d.elements||[]).map(e=>({...e,x:e.x*GS,y:e.y*GS}));
-  notes=(d.notes||[]).map(n=>({...n,x:n.x*GS,y:n.y*GS}));
+  // Support both v2 compact and v1 legacy
+  if(d.v===2){
+    config={width:d.cfg.w,height:d.cfg.h,northDir:d.cfg.d};
+    calcGS();
+    const pt=PREFAB_TYPES;
+    elements=(d.e||[]).map(o=>{
+      const ref=pt.find(p=>p.id===o.i)||{};
+      return{uid:o.u,id:o.i,label:o.l||ref.label||o.i,icon:o.ic||ref.icon||"",color:o.c||ref.color||"#888",cat:o.ca||ref.cat||"other",x:o.x*GS,y:o.y*GS,w:o.w,h:o.h,rot:o.r||0,zOff:o.z||0,groupId:o.g||null,locked:!!o.lk};
+    });
+    freeforms=(d.f||[]).map(o=>{const cl=typeof o.cl==="string"?o.cl.split("|"):o.cl;return{uid:o.u,id:o.i,label:o.l||o.i,icon:o.ic||"",color:o.c,cat:o.ca||"other",zOff:o.z||0,groupId:o.g||null,locked:!!o.lk,cells:new Set(cl)}});
+    notes=(d.n||[]).map(o=>({uid:o.u,x:o.x*GS,y:o.y*GS,text:o.t,w:100,h:32}));
+    nextUid=d.nu||1;nextGroupId=d.ng||1;
+  } else {
+    // Legacy v1 format
+    config=d.config;
+    calcGS();
+    elements=(d.elements||[]).map(e=>({...e,x:e.x*GS,y:e.y*GS}));
+    freeforms=(d.freeforms||[]).map(ff=>({...ff,cells:new Set(ff.cells)}));
+    notes=(d.notes||[]).map(n=>({...n,x:n.x*GS,y:n.y*GS}));
+    nextUid=d.nextUid||1;nextGroupId=d.nextGroupId||1;
+  }
+  selectedId=null;selectedType=null;multiSel.clear();
   buildGrid();applyZoom();document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";renderAll();updateSelPanel();updateInfo();
 }
 function loadSaves(){try{saves=JSON.parse(localStorage.getItem("gardenPlannerSaves")||"[]")}catch(e){saves=[]}}
@@ -1926,13 +2086,38 @@ function escH(s){const d=document.createElement("div");d.textContent=s;return d.
 function renderSavesList(){
   const c=document.getElementById("saves-list");c.innerHTML="";
   if(!saves.length){c.innerHTML='<div style="text-align:center;padding:20px;color:#8a9a8a;font-size:12px">No saves yet.</div>';return}
-  saves.forEach((s,i)=>{const d=new Date(s.timestamp);const t=(s.data.elements?.length||0)+(s.data.freeforms?.length||0);
+  saves.forEach((s,i)=>{const d=new Date(s.timestamp);const sd=s.data;const t=(sd.e?.length||sd.elements?.length||0)+(sd.f?.length||sd.freeforms?.length||0);const sw=sd.cfg?.w||sd.config?.width||'?';const sh=sd.cfg?.h||sd.config?.height||'?';
     const div=document.createElement("div");div.className="save-item";
-    div.innerHTML=`<div style="flex:1;min-width:0"><div class="si-name">${escH(s.name)}</div><div class="si-meta">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • ${t} el • ${s.data.config?.width}×${s.data.config?.height} ft</div></div><div class="si-actions"><button class="si-btn" onclick="event.stopPropagation();renameIteration(${i})">✏️</button><button class="si-btn danger" onclick="event.stopPropagation();deleteIteration(${i})">🗑</button></div>`;
+    div.innerHTML=`<div style="flex:1;min-width:0"><div class="si-name">${escH(s.name)}</div><div class="si-meta">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • ${t} el • ${sw}×${sh} ft</div></div><div class="si-actions"><button class="si-btn" onclick="event.stopPropagation();renameIteration(${i})">✏️</button><button class="si-btn danger" onclick="event.stopPropagation();deleteIteration(${i})">🗑</button></div>`;
     div.onclick=()=>loadIteration(i);c.appendChild(div);
   });
 }
-function exportToFile(){loadSaves();const blob=new Blob([JSON.stringify({currentState:ser(),savedIterations:saves},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="garden-plan-"+new Date().toISOString().slice(0,10)+".json";a.click()}
+function exportToFile(){loadSaves();
+  // Convert any v1 saves to v2 compact format
+  const compactSaves=saves.map(s=>{
+    if(s.data.v===2) return s;
+    const od=s.data, pt=PREFAB_TYPES;
+    const ce=(od.elements||[]).map(e=>{
+      const o={u:e.uid,i:e.id,x:e.x,y:e.y,w:e.w,h:e.h};
+      const ref=pt.find(p=>p.id===e.id);
+      if(!ref||e.label!==ref.label) o.l=e.label;
+      if(!ref||e.icon!==ref.icon) o.ic=e.icon;
+      if(!ref||e.color!==ref.color) o.c=e.color;
+      if(!ref||e.cat!==ref.cat) o.ca=e.cat;
+      if(e.rot) o.r=e.rot;if(e.zOff) o.z=e.zOff;if(e.groupId) o.g=e.groupId;if(e.locked) o.lk=1;
+      return o;
+    });
+    const cf=(od.freeforms||[]).map(ff=>{
+      const o={u:ff.uid,i:ff.id,c:ff.color,cl:(ff.cells||[]).join("|")};
+      if(ff.label) o.l=ff.label;if(ff.icon) o.ic=ff.icon;
+      if(ff.cat&&ff.cat!=="other") o.ca=ff.cat;
+      if(ff.zOff) o.z=ff.zOff;if(ff.groupId) o.g=ff.groupId;if(ff.locked) o.lk=1;
+      return o;
+    });
+    const cn=(od.notes||[]).map(n=>({u:n.uid,x:n.x,y:n.y,t:n.text}));
+    return{name:s.name,timestamp:s.timestamp,data:{v:2,cfg:{w:od.config.width,h:od.config.height,d:od.config.northDir},e:ce,f:cf,n:cn,nu:od.nextUid||1,ng:od.nextGroupId||1}};
+  });
+  const blob=new Blob([JSON.stringify({currentState:ser(),savedIterations:compactSaves},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="garden-plan-"+new Date().toISOString().slice(0,10)+".json";a.click()}
 function importFromFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.currentState)deser(d.currentState);if(d.savedIterations){loadSaves();const ex=new Set(saves.map(s=>s.timestamp));d.savedIterations.forEach(s=>{if(!ex.has(s.timestamp))saves.push(s)});saves.sort((a,b)=>b.timestamp-a.timestamp);persistSaves();renderSavesList()}closeSaveModal()}catch(err){alert("Error: "+err.message)}};r.readAsText(f);e.target.value=""}
 
 // ═══ OBJECT MANAGER ═══
