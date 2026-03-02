@@ -20,7 +20,7 @@
   label.field-label { display: block; font-size: 12px; font-weight: 600; color: #4a5d4a; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
   .setup-card input[type=number] { width: 100%; padding: 12px 16px; border: 2px solid #d4dcd4; border-radius: 10px; font-size: 18px; font-family: Georgia, serif; color: #2d4a2d; background: #f8faf8; outline: none; }
   .setup-card input[type=number]:focus { border-color: #5D8233; }
-  .compass-btn { padding: 8px 16px; border-radius: 8px; border: 2px solid #e0e6e0; background: #fff; color: #4a5d4a; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .compass-btn { padding: 8px 0; flex:1; text-align:center; border-radius: 8px; border: 2px solid #e0e6e0; background: #fff; color: #4a5d4a; font-weight: 600; font-size: 12px; cursor: pointer; }
   .compass-btn.active { border-color: #5D8233; background: #5D8233; color: #fff; }
   .start-btn { width: 100%; padding: 14px 24px; background: linear-gradient(135deg, #5D8233, #4a6d28); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; font-family: Georgia, serif; cursor: pointer; box-shadow: 0 4px 16px rgba(93,130,51,0.35); }
   .start-btn:active { transform: scale(0.98); }
@@ -205,6 +205,32 @@
     display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
   }
   .or-expand.hidden { display: none; }
+
+  /* Lock */
+  .placed-el.locked { opacity: 0.7; cursor: not-allowed !important; }
+  .placed-el.locked::after { content: "🔒"; position: absolute; top: 2px; right: 2px; font-size: 8px; }
+  /* Measure */
+  .measure-line { position: absolute; background: #E91E63; pointer-events: none; z-index: 100; transform-origin: 0 50%; height: 2px; }
+  .measure-label { position: absolute; background: #E91E63; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; z-index: 101; pointer-events: none; white-space: nowrap; transform: translate(-50%,-50%); }
+  .measure-dot { position: absolute; width: 8px; height: 8px; background: #E91E63; border-radius: 50%; z-index: 101; pointer-events: none; transform: translate(-50%,-50%); }
+  /* Notes */
+  .note-el { position: absolute; min-width: 60px; min-height: 32px; background: #FFF9C4; border: 1.5px solid #FFD600; border-radius: 4px; padding: 4px 6px; font-size: 9px; color: #5d4037; cursor: grab; z-index: 55; box-shadow: 0 1px 4px rgba(0,0,0,0.1); word-wrap: break-word; max-width: 120px; }
+  .note-el.selected { border: 2.5px solid #E91E63 !important; box-shadow: 0 0 0 3px rgba(233,30,99,0.3) !important; }
+  /* Alignment guides */
+  .align-guide { position: absolute; pointer-events: none; z-index: 80; }
+  .align-guide.h { height: 1px; background: #E91E63; left: 0; right: 0; }
+  .align-guide.v { width: 1px; background: #E91E63; top: 0; bottom: 0; }
+  /* Zoom */
+  .canvas-wrap { position: relative; transform-origin: 0 0; }
+  /* Recently used */
+  .recent-section { padding: 4px 12px 2px; border-bottom: 1px solid #e8ede8; }
+  .recent-title { font-size: 9px; font-weight: 700; color: #8a9a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .recent-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px; }
+  .recent-chip { padding: 3px 7px; border-radius: 5px; border: 1px solid #e0e6e0; background: #fff; font-size: 10px; cursor: pointer; display: flex; align-items: center; gap: 3px; }
+  .recent-chip:hover { border-color: #5D8233; background: #f5f9f0; }
+  /* Drop zone */
+  .drop-zone { border: 2px dashed #d4dcd4; border-radius: 8px; padding: 16px; text-align: center; font-size: 11px; color: #8a9a8a; margin: 8px 0; transition: all 0.2s; }
+  .drop-zone.drag-over { border-color: #5D8233; background: #f5f9f0; color: #2d4a2d; }
 </style>
 </head>
 <body>
@@ -212,10 +238,10 @@
   <div class="setup-card">
     <div style="text-align:center;margin-bottom:36px"><div style="font-size:48px;margin-bottom:8px">🌿</div><h1>Garden Planner</h1><p class="sub">Enter your backyard dimensions to get started</p></div>
     <div style="display:flex;gap:16px;margin-bottom:28px">
-      <div style="flex:1"><label class="field-label">Width (ft)</label><input type="number" id="inp-width" value="10" min="10" max="2000"></div>
-      <div style="flex:1"><label class="field-label">Depth (ft)</label><input type="number" id="inp-height" value="10" min="10" max="2000"></div>
+      <div style="flex:1"><label class="field-label">Width (ft)</label><input type="number" id="inp-width" min="10" max="200"></div>
+      <div style="flex:1"><label class="field-label">Depth (ft)</label><input type="number" id="inp-height" min="10" max="200"></div>
     </div>
-    <div style="margin-bottom:32px"><label class="field-label">Which direction is the top of your yard?</label><div id="compass-btns" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div></div>
+    <div style="margin-bottom:32px"><label class="field-label">Which direction is the top of your yard?</label><div id="compass-btns" style="display:flex;gap:6px;margin-top:10px"></div></div>
     <button class="start-btn" id="start-btn">Start Planning →</button>
   </div>
 </div>
@@ -227,6 +253,12 @@
       <button class="mode-btn active" id="mode-place" onclick="setMode('place')">📦 Place</button>
       <button class="mode-btn" id="mode-draw" onclick="setMode('draw')">✏️ Draw</button>
       <button class="mode-btn" id="mode-erase" onclick="setMode('erase')">🧹 Erase</button>
+      <button class="mode-btn" id="mode-measure" onclick="setMode('measure')">📏 Measure</button>
+      <button class="mode-btn" id="mode-note" onclick="setMode('note')">📝 Note</button>
+    </div>
+    <div class="recent-section" id="recent-section" style="display:none">
+      <div class="recent-title">Recently Used</div>
+      <div class="recent-row" id="recent-row"></div>
     </div>
     <div class="cat-tabs" id="cat-tabs"></div>
     <div class="search-bar" id="search-bar" style="display:none"><input type="text" class="search-input" id="search-input" placeholder="Search flowers..." oninput="renderList()"></div>
@@ -255,6 +287,19 @@
       <div class="brush-size-row"><label>Brush</label><input type="range" id="es-brush-size" min="1" max="5" value="1" oninput="editShapeBrushSize=+this.value;document.getElementById('esb-val').textContent=this.value+'ft'"><span class="bs-val" id="esb-val">1ft</span></div>
       <div class="dp-info" id="esp-info">Draw to add cells to this shape</div>
       <button class="action-btn" style="width:100%;border:1.5px solid #AB47BC;background:#F3E5F5;color:#7B1FA2;font-weight:700" onclick="finishEditShape()">✓ Done Editing</button>
+    </div>
+
+    <div class="draw-panel" id="measure-panel" style="display:none">
+      <div class="dp-title" style="color:#E91E63;">📏 Measure Tool</div>
+      <div class="dp-info">Click two points to measure distance</div>
+      <div id="measure-result" style="font-size:14px;font-weight:700;color:#E91E63;text-align:center;padding:8px 0;display:none"></div>
+      <button class="action-btn" style="width:100%;border:1.5px solid #E91E63;background:#FCE4EC;color:#C2185B" onclick="clearMeasure()">Clear Measurement</button>
+    </div>
+
+    <div class="draw-panel" id="note-panel" style="display:none">
+      <div class="dp-title" style="color:#5d4037;">📝 Add Note</div>
+      <div class="dp-info">Click on the garden to place a sticky note</div>
+      <textarea id="note-text" style="width:100%;height:48px;padding:6px;border:1.5px solid #d4dcd4;border-radius:6px;font-size:11px;resize:none;outline:none;font-family:inherit" placeholder="Type your note..."></textarea>
     </div>
 
     <div class="sel-panel" id="sel-panel" style="display:none">
@@ -301,15 +346,22 @@
       <div class="dim-row" id="edit-shape-row" style="display:none">
         <button class="action-btn" style="flex:1;border:1.5px solid #AB47BC;background:#F3E5F5;color:#7B1FA2;font-weight:700" onclick="startEditShape()">✏️ Edit Shape</button>
       </div>
+      <div class="dim-row" id="convert-row" style="display:none">
+        <button class="action-btn" style="flex:1;border:1.5px solid #00897B;background:#E0F2F1;color:#00695C;font-weight:600" onclick="convertToFreeform()">🔄 Convert to Freeform</button>
+      </div>
       <div class="dim-row">
         <button class="action-btn" style="border:1.5px solid #e57373;background:#fff;color:#c62828;" onclick="deleteSelected()">🗑</button>
         <button class="action-btn" style="border:1.5px solid #5D8233;background:#fff;color:#5D8233;" onclick="duplicateSelected()">📋</button>
         <button class="action-btn" id="rotate-btn" style="border:1.5px solid #FFD600;background:#fff;color:#9e8600;" onclick="rotateSelected()" title="Rotate 45° clockwise">↻ 45°</button>
         <button class="action-btn" id="rotate-ccw-btn" style="border:1.5px solid #FFD600;background:#fff;color:#9e8600;" onclick="rotateCCW()" title="Rotate 45° counter-clockwise">↺</button>
+        <button class="action-btn" id="lock-btn" style="border:1.5px solid #78909C;background:#fff;color:#546E7A;" onclick="toggleLock()">🔒</button>
         <button class="action-btn" id="group-btn" style="border:1.5px solid #64B5F6;background:#fff;color:#1565C0;" onclick="groupSelected()">🔗</button>
       </div>
     </div>
-    <div class="controls"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chk-labels" checked> Labels</label></div>
+    <div class="controls">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chk-labels" checked> Labels</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chk-grid" checked> Grid</label>
+    </div>
   </div>
   <div class="canvas-area">
     <div class="topbar">
@@ -322,6 +374,8 @@
         <button class="tb-btn" id="redo-btn" onclick="redo()" title="Redo (Ctrl+Shift+Z)" disabled style="opacity:0.4">↪ Redo</button>
         <div style="width:1px;height:20px;background:#d4dcd4"></div>
         <button class="tb-btn" onclick="toggleObjPanel()" id="obj-toggle-btn">📋 Objects</button>
+        <button class="tb-btn" onclick="exportPNG()" title="Export as PNG">📸 PNG</button>
+        <button class="tb-btn" onclick="shareLink()" title="Copy share link">🔗 Share</button>
         <button class="tb-btn" onclick="openSaveModal()" style="background:#FFFDE7;border-color:#FFD600;color:#9e8600;">💾 Save</button>
         <button class="tb-btn" onclick="openEditModal()">✏️ Dims</button>
         <button class="tb-btn" onclick="clearAll()">Clear</button>
@@ -329,7 +383,7 @@
     </div>
     <div id="canvas"></div>
     <div class="house-bar" id="house-bar">🏠 HOUSE</div>
-    <div class="hint" id="hint-text">Click to select • Drag to move • Arrow keys nudge (Shift+Arrow ×5) • Ctrl+G group • [ ] layers • Ctrl+D dup • Del remove</div>
+    <div class="hint" id="hint-text">Click to select • Drag to move • Scroll to zoom • Space+drag to pan • Arrow keys nudge • Ctrl+G group • [ ] layers • Ctrl+D dup • Del remove</div>
   </div>
 
   <!-- Object Manager Panel -->
@@ -351,7 +405,7 @@
 
 <div class="modal-overlay" id="edit-modal"><div class="modal-box"><h2>✏️ Edit Dimensions</h2><p class="msub">Adjust your backyard size</p><div class="modal-row"><div><label class="field-label">Width (ft)</label><input type="number" id="edit-width" min="10" max="200"></div><div><label class="field-label">Depth (ft)</label><input type="number" id="edit-height" min="10" max="200"></div></div><div style="margin-bottom:8px"><label class="field-label">Top of yard faces</label><div id="edit-compass-btns" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div></div><div class="modal-warning" id="edit-warning">⚠️ Some elements may fall outside new boundaries.</div><div class="modal-actions"><button class="modal-cancel" onclick="closeEditModal()">Cancel</button><button class="modal-save" onclick="applyEdit()">Apply</button></div></div></div>
 
-<div class="modal-overlay" id="save-modal"><div class="modal-box" style="max-width:480px"><h2>💾 Saved Iterations</h2><p class="msub">Save your current layout or load a previous one</p><div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" class="save-name-input" id="save-name" placeholder="Name this iteration..."><button class="modal-save" style="flex:none;padding:10px 20px;white-space:nowrap" onclick="saveIteration()">Save</button></div><div class="saves-list" id="saves-list"></div><div class="file-row"><button class="file-btn" onclick="exportToFile()">📥 Export</button><button class="file-btn" onclick="document.getElementById('import-file').click()">📤 Import</button><input type="file" id="import-file" accept=".json" style="display:none" onchange="importFromFile(event)"></div><div class="modal-actions" style="margin-top:14px"><button class="modal-cancel" onclick="closeSaveModal()">Close</button></div></div></div>
+<div class="modal-overlay" id="save-modal"><div class="modal-box" style="max-width:480px"><h2>💾 Saved Iterations</h2><p class="msub">Save your current layout or load a previous one</p><div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" class="save-name-input" id="save-name" placeholder="Name this iteration..."><button class="modal-save" style="flex:none;padding:10px 20px;white-space:nowrap" onclick="saveIteration()">Save</button></div><div class="saves-list" id="saves-list"></div><div class="file-row"><button class="file-btn" onclick="exportToFile()">📥 Export</button><button class="file-btn" onclick="document.getElementById('import-file').click()">📤 Import</button><input type="file" id="import-file" accept=".json" style="display:none" onchange="importFromFile(event)"></div><div class="drop-zone" id="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');importDropped(event)">📁 Drag & drop a .json plan file here</div><div class="modal-actions" style="margin-top:14px"><button class="modal-cancel" onclick="closeSaveModal()">Close</button></div></div></div>
 
 <script>
 let GS=20;
@@ -495,15 +549,20 @@ const CATS=[
 const LAYER={beds:1,hardscape:1,other:2,water:2,plants:3,structures:3,entertain:4,furniture:4,flowers:5};
 const ROUND_IDS=new Set(["tree-large","tree-small","shrub","fountain","compost","water-barrel","pond","herb-garden","fruit-tree","berry-bush","ornamental-grass","fire-pit","hot-tub","trampoline","sandbox","birdbath","umbrella","bird-feeder","bird-house","garden-statue","solar-light","planter-pot","flag-pole","rock-boulder"]);
 
-let config=null,elements=[],freeforms=[];
-let selectedId=null,selectedType=null,activeCat="beds",showLabels=true,nextUid=1;
+let config=null,elements=[],freeforms=[],notes=[];
+let selectedId=null,selectedType=null,activeCat="beds",showLabels=true,showGrid=true,nextUid=1;
 let mode="place",dragging=null,dragOff={x:0,y:0},resizing=null;
 let drawBrush=null,brushSize=1,eraseSize=1,isDrawing=false,drawCells=new Set();
 let isDraggingFF=false,ffDragStart=null;
 let editingFFUid=null,editShapeMode="add",editShapeBrushSize=1;
 let nextGroupId=1;
-// Multi-select: Set of uid values for shift-click grouping
 let multiSel=new Set();
+// Zoom & Pan
+let zoom=1, panX=0, panY=0, isPanning=false, panStart={x:0,y:0}, spaceHeld=false;
+// Measure
+let measurePts=[], measureEl=null;
+// Recently used
+let recentItems=[];
 
 // Undo/Redo
 let undoStack=[],redoStack=[];
@@ -512,36 +571,36 @@ const MAX_UNDO=80;
 function snapshot(){
   undoStack.push({
     elements:elements.map(e=>({...e})),
-    freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,cells:new Set(ff.cells)})),
+    freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,locked:ff.locked||false,cells:new Set(ff.cells)})),
+    notes:notes.map(n=>({...n})),
     nextUid,nextGroupId
   });
   if(undoStack.length>MAX_UNDO) undoStack.shift();
   redoStack=[];
   updateUndoButtons();
 }
-function undo(){
-  if(!undoStack.length)return;
-  redoStack.push({
+function _saveState(){
+  return {
     elements:elements.map(e=>({...e})),
-    freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,cells:new Set(ff.cells)})),
+    freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,locked:ff.locked||false,cells:new Set(ff.cells)})),
+    notes:notes.map(n=>({...n})),
     nextUid,nextGroupId
-  });
-  const s=undoStack.pop();
-  elements=s.elements;freeforms=s.freeforms;nextUid=s.nextUid;nextGroupId=s.nextGroupId||nextGroupId;
+  };
+}
+function _restoreState(s){
+  elements=s.elements;freeforms=s.freeforms;notes=s.notes||[];nextUid=s.nextUid;nextGroupId=s.nextGroupId||nextGroupId;
   selectedId=null;selectedType=null;multiSel.clear();
   renderAll();updateSelPanel();updateInfo();updateUndoButtons();
 }
+function undo(){
+  if(!undoStack.length)return;
+  redoStack.push(_saveState());
+  _restoreState(undoStack.pop());
+}
 function redo(){
   if(!redoStack.length)return;
-  undoStack.push({
-    elements:elements.map(e=>({...e})),
-    freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,cells:new Set(ff.cells)})),
-    nextUid,nextGroupId
-  });
-  const s=redoStack.pop();
-  elements=s.elements;freeforms=s.freeforms;nextUid=s.nextUid;nextGroupId=s.nextGroupId||nextGroupId;
-  selectedId=null;selectedType=null;multiSel.clear();
-  renderAll();updateSelPanel();updateInfo();updateUndoButtons();
+  undoStack.push(_saveState());
+  _restoreState(redoStack.pop());
 }
 function updateUndoButtons(){
   const ub=document.getElementById("undo-btn"),rb=document.getElementById("redo-btn");
@@ -575,11 +634,13 @@ function isHighlighted(uid){
 }
 
 // ═══ SETUP ═══
-let chosenDir="E";
+let chosenDir="N";
 const cC=document.getElementById("compass-btns");
-DIRS.forEach(d=>{const b=document.createElement("button");b.className="compass-btn"+(d==="E"?" active":"");b.textContent=d;b.onclick=()=>{chosenDir=d;cC.querySelectorAll("button").forEach(x=>x.className="compass-btn");b.className="compass-btn active"};cC.appendChild(b)});
+DIRS.forEach(d=>{const b=document.createElement("button");b.className="compass-btn"+(d==="N"?" active":"");b.textContent=d;b.onclick=()=>{chosenDir=d;cC.querySelectorAll("button").forEach(x=>x.className="compass-btn");b.className="compass-btn active"};cC.appendChild(b)});
 document.getElementById("start-btn").onclick=()=>{
-  config={width:Math.max(10,Math.min(200,+document.getElementById("inp-width").value||50)),height:Math.max(10,Math.min(200,+document.getElementById("inp-height").value||38)),northDir:chosenDir};
+  const wVal=+document.getElementById("inp-width").value, hVal=+document.getElementById("inp-height").value;
+  if(!wVal||!hVal){alert("Please enter your yard dimensions.");return}
+  config={width:Math.max(10,Math.min(200,wVal)),height:Math.max(10,Math.min(200,hVal)),northDir:chosenDir};
   document.getElementById("setup-screen").style.display="none";
   document.getElementById("planner-screen").classList.add("visible");
   initPlanner();
@@ -599,6 +660,7 @@ function calcGS(){
 function initPlanner(){
   calcGS();
   buildGrid();
+  applyZoom();
   document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";
   renderCatTabs();renderList();
   const cv=document.getElementById("canvas");
@@ -606,8 +668,10 @@ function initPlanner(){
   cv.addEventListener("touchstart",e=>{e.preventDefault();onDown({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY,target:e.target,stopPropagation(){}})},{passive:false});
   cv.addEventListener("touchmove",e=>{e.preventDefault();onMove({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY})},{passive:false});
   cv.addEventListener("touchend",onUp);
-  document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();deleteSelected()}if(e.key==="Escape"){if(editingFFUid){finishEditShape()}else{setMode("place");multiSel.clear();renderAll();updateSelPanel()}}if((e.ctrlKey||e.metaKey)&&e.key==="d"){e.preventDefault();duplicateSelected()}if((e.ctrlKey||e.metaKey)&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo()}if((e.ctrlKey||e.metaKey)&&(e.key==="y"||(e.key==="z"&&e.shiftKey))){e.preventDefault();redo()}if((e.ctrlKey||e.metaKey)&&e.key==="g"&&!e.shiftKey){e.preventDefault();groupSelected()}if((e.ctrlKey||e.metaKey)&&e.key==="g"&&e.shiftKey){e.preventDefault();ungroupSelected()}if(e.key==="["){e.preventDefault();layerMove(-1)}if(e.key==="]"){e.preventDefault();layerMove(1)}if(selectedId&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){e.preventDefault();const s=e.shiftKey?5:1;if(e.key==="ArrowUp")nudgeSel(0,-s);if(e.key==="ArrowDown")nudgeSel(0,s);if(e.key==="ArrowLeft")nudgeSel(-s,0);if(e.key==="ArrowRight")nudgeSel(s,0)}});
+  document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();deleteSelected()}if(e.key==="Escape"){if(editingFFUid){finishEditShape()}else{setMode("place");multiSel.clear();renderAll();updateSelPanel()}}if((e.ctrlKey||e.metaKey)&&e.key==="d"){e.preventDefault();duplicateSelected()}if((e.ctrlKey||e.metaKey)&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo()}if((e.ctrlKey||e.metaKey)&&(e.key==="y"||(e.key==="z"&&e.shiftKey))){e.preventDefault();redo()}if((e.ctrlKey||e.metaKey)&&e.key==="g"&&!e.shiftKey){e.preventDefault();groupSelected()}if((e.ctrlKey||e.metaKey)&&e.key==="g"&&e.shiftKey){e.preventDefault();ungroupSelected()}if(e.key==="["){e.preventDefault();layerMove(-1)}if(e.key==="]"){e.preventDefault();layerMove(1)}if(selectedId&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){e.preventDefault();const s=e.shiftKey?5:1;if(e.key==="ArrowUp")nudgeSel(0,-s);if(e.key==="ArrowDown")nudgeSel(0,s);if(e.key==="ArrowLeft")nudgeSel(-s,0);if(e.key==="ArrowRight")nudgeSel(s,0)}});
   document.getElementById("chk-labels").onchange=e=>{showLabels=e.target.checked;renderAll()};
+  document.getElementById("chk-grid").onchange=e=>{showGrid=e.target.checked;toggleGrid()};
+  initZoomPan();
   window.addEventListener("resize",()=>{if(!config)return;recalcGS();buildGrid();renderAll()});
   updateInfo();
 }
@@ -627,13 +691,18 @@ function buildGrid(){
 function setMode(m){
   if(editingFFUid&&m!=="editshape"){finishEditShape();if(m==="place")return;}
   if(m!=="draw"&&drawCells.size>0)commitDrawing();
+  if(m!=="measure")clearMeasure();
   mode=m;
-  document.getElementById("mode-place").className="mode-btn"+(m==="place"?" active":"");
-  document.getElementById("mode-draw").className="mode-btn"+(m==="draw"?" active":"");
-  document.getElementById("mode-erase").className="mode-btn"+(m==="erase"?" active":"");
+  ["place","draw","erase","measure","note"].forEach(id=>{
+    const btn=document.getElementById("mode-"+id);
+    if(btn) btn.className="mode-btn"+(id===m?" active":"");
+  });
   document.getElementById("draw-panel").style.display=m==="draw"?"block":"none";
   document.getElementById("erase-panel").style.display=m==="erase"?"block":"none";
-  document.getElementById("canvas").className=m==="draw"?"draw-mode":m==="erase"?"erase-mode":"";
+  document.getElementById("measure-panel").style.display=m==="measure"?"block":"none";
+  document.getElementById("note-panel").style.display=m==="note"?"block":"none";
+  document.getElementById("edit-shape-panel").style.display="none";
+  getCv().className=m==="draw"?"draw-mode":m==="erase"?"erase-mode":m==="measure"?"draw-mode":m==="note"?"draw-mode":"";
   if(m==="draw"){if(!drawBrush)drawBrush=DRAW_TYPES[0];document.getElementById("dp-brush-name").textContent=drawBrush.label;document.getElementById("draw-color").value=drawBrush._color||drawBrush.color}
   selectedId=null;selectedType=null;
   renderCatTabs();renderList();renderAll();updateSelPanel();
@@ -686,9 +755,35 @@ function renderList(){
 function addPrefab(t){
   snapshot();
   const cW=config.width*GS,cH=config.height*GS;
-  const el={...t,uid:nextUid++,x:snap(Math.random()*Math.max(0,cW-t.w*GS)),y:snap(Math.random()*Math.max(0,cH-t.h*GS)),zOff:0,groupId:null,rot:0};
+  // Place at viewport center
+  const area=document.querySelector(".canvas-area");
+  const cx=Math.max(0,Math.min(cW-t.w*GS, snap((area.scrollLeft+area.clientWidth/2)/zoom-t.w*GS/2)));
+  const cy=Math.max(0,Math.min(cH-t.h*GS, snap((area.scrollTop+area.clientHeight/2)/zoom-t.h*GS/2)));
+  const el={...t,uid:nextUid++,x:cx,y:cy,zOff:0,groupId:null,rot:0,locked:false};
   elements.push(el);selectedId=el.uid;selectedType="prefab";multiSel.clear();
+  trackRecent(t);
   renderAll();updateSelPanel();updateInfo();
+}
+function trackRecent(t){
+  recentItems=recentItems.filter(r=>r.id!==t.id);
+  recentItems.unshift({id:t.id,label:t.label,icon:t.icon,cat:t.cat});
+  if(recentItems.length>8) recentItems=recentItems.slice(0,8);
+  renderRecentItems();
+}
+function renderRecentItems(){
+  const sec=document.getElementById("recent-section");
+  const row=document.getElementById("recent-row");
+  if(!recentItems.length){sec.style.display="none";return}
+  sec.style.display="block";row.innerHTML="";
+  recentItems.forEach(r=>{
+    const chip=document.createElement("button");chip.className="recent-chip";
+    chip.innerHTML=`${r.icon} ${r.label}`;
+    chip.onclick=()=>{
+      const t=PREFAB_TYPES.find(x=>x.id===r.id);
+      if(t) addPrefab(t);
+    };
+    row.appendChild(chip);
+  });
 }
 
 // ═══ RENDER ═══
@@ -705,8 +800,8 @@ function renderAll(immediate){
 }
 function doRenderAll(){
   const cv=getCv();
-  cv.querySelectorAll(".placed-el,.ff-group,.draw-preview").forEach(e=>e.remove());
-  renderFF(cv);renderDrawPreview(cv);renderPrefabs(cv);
+  cv.querySelectorAll(".placed-el,.ff-group,.draw-preview,.note-el,.align-guide").forEach(e=>e.remove());
+  renderFF(cv);renderDrawPreview(cv);renderPrefabs(cv);renderNotes(cv);
 }
 function renderPrefabs(cv){
   if(!cv)cv=getCv();
@@ -716,7 +811,7 @@ function renderPrefabs(cv){
     const isHL=isHighlighted(el.uid);
     const d=document.createElement("div");
     const isRound = ROUND_IDS.has(el.id) || el.cat==="flowers";
-    d.className="placed-el"+(isRound?" round":"")+(isSel?" selected":"")+(isHL&&!isSel?" grouped":"");
+    d.className="placed-el"+(isRound?" round":"")+(isSel?" selected":"")+(isHL&&!isSel?" grouped":"")+(el.locked?" locked":"");
     d.dataset.uid=el.uid;d.dataset.kind="prefab";
     const z=isSel?50:((LAYER[el.cat]||1)*10+(el.zOff||0));
     const rot=el.rot||0;
@@ -781,7 +876,26 @@ function updateSelPanel(){
   const mi=document.getElementById("sel-multi-info");
   // Close icon picker when selection changes
   iconPickerOpen=false;document.getElementById("icon-picker").style.display="none";
-  if(!selectedId||mode!=="place"){p.style.display="none";gi.style.display="none";mi.style.display="none";if(objPanelOpen)renderObjList();return}
+  if(selectedType==="note"){
+    p.style.display="block";gi.style.display="none";mi.style.display="none";
+    const n=notes.find(x=>x.uid===selectedId);
+    if(!n){p.style.display="none";return}
+    document.getElementById("sel-info").textContent="📝 Note — press Del to remove";
+    document.getElementById("sel-name").value=n.text;
+    document.getElementById("sel-name").onchange=function(){if(this.value.trim()){snapshot();n.text=this.value.trim();renderAll()}};
+    document.getElementById("sel-icon").value="📝";
+    document.getElementById("sel-color").value="#FFF9C4";
+    document.getElementById("pos-row").style.display="none";
+    document.getElementById("dim-row").style.display="none";
+    document.getElementById("edit-shape-row").style.display="none";
+    document.getElementById("convert-row").style.display="none";
+    document.getElementById("rotate-btn").style.display="none";
+    document.getElementById("rotate-ccw-btn").style.display="none";
+    document.getElementById("lock-btn").style.display="none";
+    document.getElementById("group-btn").style.display="none";
+    if(objPanelOpen&&!_isDragActive)renderObjList();return;
+  }
+  if(!selectedId||mode!=="place"){p.style.display="none";gi.style.display="none";mi.style.display="none";if(objPanelOpen&&!_isDragActive)renderObjList();return}
   // Multi-select info
   if(multiSel.size>1){mi.style.display="block";mi.textContent="⊞ "+multiSel.size+" objects selected — Ctrl+G to group";} else {mi.style.display="none"}
   if(selectedType==="prefab"){
@@ -790,7 +904,7 @@ function updateSelPanel(){
     document.getElementById("sel-name").value=el.label;
     document.getElementById("sel-icon").value=el.icon;
     const layerLbl=(LAYER[el.cat]||1)*10+(el.zOff||0);
-    document.getElementById("sel-info").textContent=`${el.w}×${el.h} ft • ${el.rot||0}° • z:${layerLbl}`;
+    document.getElementById("sel-info").textContent=`${el.w}×${el.h} ft • ${el.rot||0}° • z:${layerLbl}${el.locked?" • 🔒 Locked":""}`;
     document.getElementById("pos-row").style.display="flex";
     document.getElementById("sel-x").value=Math.round(el.x/GS);
     document.getElementById("sel-y").value=Math.round(el.y/GS);
@@ -798,6 +912,8 @@ function updateSelPanel(){
     document.getElementById("sel-width").value=el.w;document.getElementById("sel-height").value=el.h;
     document.getElementById("sel-color").value=el.color;
     document.getElementById("edit-shape-row").style.display="none";
+    document.getElementById("convert-row").style.display="flex";
+    document.getElementById("lock-btn").textContent=el.locked?"🔓":"🔒";
     // Group info
     if(el.groupId){const n=getGroupUids(el.uid).size;gi.style.display="block";gi.innerHTML=`🔗 Group (${n} objects) — <a href="#" onclick="event.preventDefault();ungroupSelected()" style="color:#1565C0">Ungroup</a>`;}else{gi.style.display="none"}
     document.getElementById("group-btn").textContent=el.groupId?"🔓":"🔗";
@@ -809,13 +925,15 @@ function updateSelPanel(){
     const layerLbl=(LAYER[ff.cat]||1)*10+(ff.zOff||0);
     let mnX=1e9,mnY=1e9;
     ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy});
-    document.getElementById("sel-info").textContent=`${ff.cells.size} sq ft freeform • z:${layerLbl}`;
+    document.getElementById("sel-info").textContent=`${ff.cells.size} sq ft freeform • z:${layerLbl}${ff.locked?" • 🔒 Locked":""}`;
     document.getElementById("pos-row").style.display="flex";
     document.getElementById("sel-x").value=mnX;
     document.getElementById("sel-y").value=mnY;
     document.getElementById("dim-row").style.display="none";document.getElementById("rotate-btn").style.display="none";document.getElementById("rotate-ccw-btn").style.display="none";
     document.getElementById("sel-color").value=ff.color;
     document.getElementById("edit-shape-row").style.display="flex";
+    document.getElementById("convert-row").style.display="none";
+    document.getElementById("lock-btn").textContent=ff.locked?"🔓":"🔒";
     if(ff.groupId){const n=getGroupUids(ff.uid).size;gi.style.display="block";gi.innerHTML=`🔗 Group (${n} objects) — <a href="#" onclick="event.preventDefault();ungroupSelected()" style="color:#1565C0">Ungroup</a>`;}else{gi.style.display="none"}
     document.getElementById("group-btn").textContent=ff.groupId?"🔓":"🔗";
   }
@@ -953,7 +1071,8 @@ function rotateCCW(){
 function deleteSelected(){
   if(!selectedId)return;
   snapshot();
-  if(selectedType==="prefab")elements=elements.filter(e=>e.uid!==selectedId);
+  if(selectedType==="note") notes=notes.filter(n=>n.uid!==selectedId);
+  else if(selectedType==="prefab")elements=elements.filter(e=>e.uid!==selectedId);
   else freeforms=freeforms.filter(f=>f.uid!==selectedId);
   selectedId=null;selectedType=null;multiSel.clear();renderAll();updateSelPanel();updateInfo();
 }
@@ -1038,8 +1157,8 @@ function objDuplicate(uid,kind){
   if(kind==="prefab"){const el=elements.find(e=>e.uid===uid);if(el)doPrefabDup(el)}
   else{const ff=freeforms.find(f=>f.uid===uid);if(ff)doFFDup(ff)}
 }
-function clearAll(){snapshot();elements=[];freeforms=[];drawCells.clear();selectedId=null;selectedType=null;renderAll();updateSelPanel();updateInfo()}
-function updateInfo(){document.getElementById("info-count").textContent=(elements.length+freeforms.length)+" elements • 1 sq = 1 ft";if(objPanelOpen)renderObjList()}
+function clearAll(){snapshot();elements=[];freeforms=[];notes=[];drawCells.clear();selectedId=null;selectedType=null;renderAll();updateSelPanel();updateInfo()}
+function updateInfo(){const total=elements.length+freeforms.length+(notes.length?notes.length:0);document.getElementById("info-count").textContent=total+" elements"+(notes.length?" ("+notes.length+" notes)":"")+" • 1 sq = 1 ft • Scroll to zoom";if(objPanelOpen)renderObjList()}
 
 // ═══ DRAW ═══
 function paintCells(pos){
@@ -1072,8 +1191,14 @@ function startEditShape(){
   document.getElementById("mode-place").className="mode-btn";
   document.getElementById("mode-draw").className="mode-btn";
   document.getElementById("mode-erase").className="mode-btn";
+  document.getElementById("mode-measure").className="mode-btn";
+  document.getElementById("mode-note").className="mode-btn";
+  const mm=document.getElementById("mode-measure");if(mm)mm.className="mode-btn";
+  const mn=document.getElementById("mode-note");if(mn)mn.className="mode-btn";
   document.getElementById("draw-panel").style.display="none";
   document.getElementById("erase-panel").style.display="none";
+  document.getElementById("measure-panel").style.display="none";
+  document.getElementById("note-panel").style.display="none";
   document.getElementById("sel-panel").style.display="none";
   document.getElementById("edit-shape-panel").style.display="block";
   document.getElementById("esp-name").textContent=(ff.icon?ff.icon+" ":"")+ff.label;
@@ -1127,18 +1252,229 @@ function editShapeErase(pos){
 }
 
 // ═══ CANVAS ═══
-function gcp(e){const r=getCv().getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+// Zoom & Pan
+function applyZoom(){
+  const cv=getCv();
+  cv.style.transform=`scale(${zoom})`;
+  cv.style.transformOrigin="0 0";
+  const hb=document.getElementById("house-bar");
+  if(hb){hb.style.width=(config.width*GS*zoom)+"px"}
+}
+function initZoomPan(){
+  const area=document.querySelector(".canvas-area");
+  area.addEventListener("wheel",e=>{
+    if(!config)return;
+    e.preventDefault();
+    const oldZ=zoom;
+    zoom=Math.max(0.25,Math.min(3,zoom+(e.deltaY<0?0.1:-0.1)));
+    // Adjust scroll to keep pointer position stable
+    const rect=area.getBoundingClientRect();
+    const mx=e.clientX-rect.left+area.scrollLeft;
+    const my=e.clientY-rect.top+area.scrollTop;
+    const scale=zoom/oldZ;
+    area.scrollLeft=mx*scale-(e.clientX-rect.left);
+    area.scrollTop=my*scale-(e.clientY-rect.top);
+    applyZoom();renderAll(true);
+  },{passive:false});
+  document.addEventListener("keydown",e=>{if(e.code==="Space"&&!e.target.matches("input,textarea")){e.preventDefault();spaceHeld=true;if(config)getCv().style.cursor="grab"}});
+  document.addEventListener("keyup",e=>{if(e.code==="Space"){spaceHeld=false;if(config)getCv().style.cursor=""}});
+  area.addEventListener("mousedown",e=>{
+    if(spaceHeld){isPanning=true;panStart={x:e.clientX+area.scrollLeft,y:e.clientY+area.scrollTop};area.style.cursor="grabbing";e.preventDefault()}
+  });
+  area.addEventListener("mousemove",e=>{
+    if(isPanning){area.scrollLeft=panStart.x-e.clientX;area.scrollTop=panStart.y-e.clientY;e.preventDefault()}
+  });
+  area.addEventListener("mouseup",()=>{if(isPanning){isPanning=false;area.style.cursor=""}});
+  area.addEventListener("mouseleave",()=>{if(isPanning){isPanning=false;area.style.cursor=""}});
+}
+// Grid toggle
+function toggleGrid(){showGrid=!showGrid;const cv=getCv();cv.querySelectorAll(".grid-marker,.scale-label").forEach(e=>e.style.display=showGrid?"":"none")}
+// Lock
+function toggleLock(){
+  if(!selectedId)return;snapshot();
+  const obj=findObj(selectedId);if(obj) obj.locked=!obj.locked;
+  renderAll();updateSelPanel();
+}
+// Convert prefab to freeform
+function convertToFreeform(){
+  if(selectedType!=="prefab"||!selectedId)return;
+  const el=elements.find(e=>e.uid===selectedId);if(!el)return;
+  snapshot();
+  const nc=new Set();
+  const gx0=Math.round(el.x/GS),gy0=Math.round(el.y/GS);
+  for(let dx=0;dx<el.w;dx++)for(let dy=0;dy<el.h;dy++) nc.add(ck(gx0+dx,gy0+dy));
+  const ff={uid:nextUid++,id:el.id,label:el.label,icon:el.icon,color:el.color,cat:el.cat||"other",groupId:el.groupId,zOff:el.zOff||0,locked:el.locked||false,cells:nc};
+  freeforms.push(ff);
+  elements=elements.filter(e=>e.uid!==el.uid);
+  selectedId=ff.uid;selectedType="freeform";
+  renderAll();updateSelPanel();updateInfo();
+}
+// ═══ MEASURE TOOL ═══
+function clearMeasure(){
+  measurePts=[];
+  getCv().querySelectorAll(".measure-line,.measure-label,.measure-dot").forEach(e=>e.remove());
+  const r=document.getElementById("measure-result");if(r)r.style.display="none";
+}
+function addMeasurePoint(pos){
+  measurePts.push({x:pos.x,y:pos.y});
+  if(measurePts.length>=2){
+    const a=measurePts[0],b=measurePts[1];
+    const dx=(b.x-a.x)/GS,dy=(b.y-a.y)/GS;
+    const dist=Math.sqrt(dx*dx+dy*dy).toFixed(1);
+    // Draw line
+    const cv=getCv();
+    const angle=Math.atan2(b.y-a.y,b.x-a.x);
+    const len=Math.sqrt((b.x-a.x)**2+(b.y-a.y)**2);
+    const line=document.createElement("div");line.className="measure-line";
+    line.style.cssText=`left:${a.x}px;top:${a.y}px;width:${len}px;transform:rotate(${angle}rad)`;
+    cv.appendChild(line);
+    // Dots
+    [a,b].forEach(p=>{const d=document.createElement("div");d.className="measure-dot";d.style.cssText=`left:${p.x}px;top:${p.y}px`;cv.appendChild(d)});
+    // Label
+    const lbl=document.createElement("div");lbl.className="measure-label";
+    lbl.style.cssText=`left:${(a.x+b.x)/2}px;top:${(a.y+b.y)/2-14}px`;
+    lbl.textContent=dist+" ft";cv.appendChild(lbl);
+    const r=document.getElementById("measure-result");r.style.display="block";r.textContent=dist+" ft";
+    measurePts=[];
+  }
+}
+// ═══ NOTES ═══
+function addNote(pos){
+  const text=(document.getElementById("note-text").value||"").trim();
+  if(!text)return;
+  snapshot();
+  notes.push({uid:nextUid++,x:pos.x,y:pos.y,text,w:100,h:40});
+  document.getElementById("note-text").value="";
+  renderAll();updateInfo();
+}
+function renderNotes(cv){
+  if(!cv)cv=getCv();
+  const frag=document.createDocumentFragment();
+  notes.forEach(n=>{
+    const d=document.createElement("div");d.className="note-el"+(selectedType==="note"&&selectedId===n.uid?" selected":"");
+    d.dataset.uid=n.uid;d.dataset.kind="note";
+    d.style.cssText=`left:${n.x}px;top:${n.y}px;`;
+    d.textContent=n.text;
+    frag.appendChild(d);
+  });
+  cv.appendChild(frag);
+}
+function deleteNote(uid){snapshot();notes=notes.filter(n=>n.uid!==uid);if(selectedId===uid){selectedId=null;selectedType=null}renderAll();updateSelPanel();updateInfo()}
+// ═══ ALIGNMENT GUIDES ═══
+function getAlignGuides(uid,nx,ny,nw,nh){
+  const guides=[];const thresh=GS*0.5;
+  const edges={l:nx,r:nx+nw*GS,cx:nx+nw*GS/2,t:ny,b:ny+nh*GS,cy:ny+nh*GS/2};
+  elements.forEach(el=>{
+    if(el.uid===uid||el.locked)return;
+    const oe={l:el.x,r:el.x+el.w*GS,cx:el.x+el.w*GS/2,t:el.y,b:el.y+el.h*GS,cy:el.y+el.h*GS/2};
+    // Vertical guides (x alignment)
+    [["l","l"],["r","r"],["l","r"],["r","l"],["cx","cx"]].forEach(([a,b])=>{
+      if(Math.abs(edges[a]-oe[b])<thresh) guides.push({type:"v",pos:oe[b],snap:a});
+    });
+    // Horizontal guides (y alignment)
+    [["t","t"],["b","b"],["t","b"],["b","t"],["cy","cy"]].forEach(([a,b])=>{
+      if(Math.abs(edges[a]-oe[b])<thresh) guides.push({type:"h",pos:oe[b],snap:a});
+    });
+  });
+  return guides;
+}
+function renderGuides(guides){
+  getCv().querySelectorAll(".align-guide").forEach(e=>e.remove());
+  if(!guides.length)return;
+  const cv=getCv();const frag=document.createDocumentFragment();
+  const seen=new Set();
+  guides.forEach(g=>{
+    const key=g.type+":"+Math.round(g.pos);
+    if(seen.has(key))return;seen.add(key);
+    const d=document.createElement("div");
+    d.className="align-guide "+g.type;
+    if(g.type==="h") d.style.top=g.pos+"px";
+    else d.style.left=g.pos+"px";
+    d.style.width=g.type==="v"?"1px":"100%";
+    d.style.height=g.type==="h"?"1px":"100%";
+    frag.appendChild(d);
+  });
+  cv.appendChild(frag);
+}
+function clearGuides(){getCv().querySelectorAll(".align-guide").forEach(e=>e.remove())}
+// ═══ PNG EXPORT ═══
+function exportPNG(){
+  const cv=getCv();const cW=config.width*GS,cH=config.height*GS;
+  const c=document.createElement("canvas");c.width=cW;c.height=cH;
+  const ctx=c.getContext("2d");
+  // Background
+  ctx.fillStyle="#c8dba5";ctx.fillRect(0,0,cW,cH);
+  // Grid
+  if(showGrid){ctx.strokeStyle="rgba(0,0,0,0.06)";ctx.lineWidth=1;for(let x=0;x<=cW;x+=GS){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cH);ctx.stroke()}for(let y=0;y<=cH;y+=GS){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cW,y);ctx.stroke()}}
+  // Freeforms
+  freeforms.forEach(ff=>{ctx.fillStyle=ff.color;ctx.globalAlpha=0.82;ff.cells.forEach(k=>{const[gx,gy]=pk(k);ctx.fillRect(gx*GS,gy*GS,GS,GS)})});
+  ctx.globalAlpha=1;
+  // Prefabs
+  elements.forEach(el=>{ctx.fillStyle=el.color;ctx.globalAlpha=0.88;ctx.fillRect(el.x,el.y,el.w*GS,el.h*GS);ctx.globalAlpha=1;if(el.icon){ctx.font=`${Math.max(10,Math.min(el.w,el.h)*GS*0.35)}px sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(el.icon,el.x+el.w*GS/2,el.y+el.h*GS/2)}if(showLabels){ctx.font="bold 8px sans-serif";ctx.fillStyle="#fff";ctx.shadowColor="rgba(0,0,0,0.5)";ctx.shadowBlur=2;ctx.fillText(el.label,el.x+el.w*GS/2,el.y+el.h*GS/2+Math.min(el.w,el.h)*GS*0.25);ctx.shadowBlur=0}});
+  // Notes
+  notes.forEach(n=>{ctx.fillStyle="#FFF9C4";ctx.fillRect(n.x,n.y,100,32);ctx.strokeStyle="#FFD600";ctx.strokeRect(n.x,n.y,100,32);ctx.fillStyle="#5d4037";ctx.font="9px sans-serif";ctx.textAlign="left";ctx.textBaseline="top";ctx.fillText(n.text,n.x+4,n.y+4)});
+  // Download
+  const a=document.createElement("a");a.href=c.toDataURL("image/png");a.download="garden-plan-"+new Date().toISOString().slice(0,10)+".png";a.click();
+}
+// ═══ SHARE LINK ═══
+async function shareLink(){
+  try{
+    const data=JSON.stringify(ser());
+    const blob=new Blob([data]);
+    const cs=new CompressionStream("gzip");
+    const stream=blob.stream().pipeThrough(cs);
+    const compressed=await new Response(stream).arrayBuffer();
+    const b64=btoa(String.fromCharCode(...new Uint8Array(compressed)));
+    const url=location.origin+location.pathname+"#plan="+encodeURIComponent(b64);
+    await navigator.clipboard.writeText(url);
+    alert("Share link copied to clipboard! ("+Math.round(url.length/1024)+"KB)");
+  }catch(e){alert("Could not create share link: "+e.message)}
+}
+async function loadFromHash(){
+  const hash=location.hash;
+  if(!hash.includes("plan="))return false;
+  try{
+    const b64=decodeURIComponent(hash.split("plan=")[1]);
+    const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+    const ds=new DecompressionStream("gzip");
+    const stream=new Blob([bin]).stream().pipeThrough(ds);
+    const text=await new Response(stream).text();
+    const d=JSON.parse(text);
+    if(d.config){
+      config=d.config;
+      document.getElementById("setup-screen").style.display="none";
+      document.getElementById("planner-screen").classList.add("visible");
+      initPlanner();
+      deser(d);
+      location.hash="";
+      return true;
+    }
+  }catch(e){console.warn("Failed to load from hash",e)}
+  return false;
+}
+// ═══ DRAG-DROP IMPORT ═══
+function importDropped(e){
+  const file=[...e.dataTransfer.files].find(f=>f.name.endsWith(".json"));
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.currentState)deser(d.currentState);if(d.savedIterations){loadSaves();const ex=new Set(saves.map(s=>s.timestamp));d.savedIterations.forEach(s=>{if(!ex.has(s.timestamp))saves.push(s)});saves.sort((a,b)=>b.timestamp-a.timestamp);persistSaves();renderSavesList()}closeSaveModal()}catch(err){alert("Error: "+err.message)}};
+  r.readAsText(file);
+}
+function gcp(e){const r=getCv().getBoundingClientRect();return{x:(e.clientX-r.left)/zoom,y:(e.clientY-r.top)/zoom}}
 let _snapped=false,_isDragActive=false;
 function onDown(e){
+  if(spaceHeld||isPanning)return;
   const pos=gcp(e),ha=e.target.dataset?.handle;
   const shift=e.shiftKey;
   _snapped=false;
+  if(mode==="measure"){addMeasurePoint(pos);return}
+  if(mode==="note"){addNote(pos);return}
   if(mode==="editshape"){_isDragActive=true;isDrawing=true;if(editShapeMode==="add")editShapePaint(pos);else editShapeErase(pos);renderAll();return}
   if(mode==="draw"){_isDragActive=true;isDrawing=true;paintCells(pos);renderAll();return}
   if(mode==="erase"){_isDragActive=true;snapshot();_snapped=true;isDrawing=true;eraseCells(pos);renderAll();updateInfo();return}
   if(ha==="rotate"){e.stopPropagation();rotateSelected();return}
   if(ha&&ha!=="rotate"&&selectedType==="prefab"){
-    const el=elements.find(x=>x.uid===selectedId);if(!el)return;
+    const el=elements.find(x=>x.uid===selectedId);if(!el||el.locked)return;
     snapshot();_snapped=true;_isDragActive=true;
     resizing={uid:el.uid,handle:ha,sx:pos.x,sy:pos.y,ox:el.x,oy:el.y,ow:el.w,oh:el.h};return;
   }
@@ -1146,6 +1482,12 @@ function onDown(e){
   const gx=Math.floor(pos.x/GS),gy=Math.floor(pos.y/GS);
   let hits=[];
   const cellKey=ck(gx,gy);
+  // Notes (highest z)
+  notes.forEach(n=>{
+    if(pos.x>=n.x&&pos.x<=n.x+100&&pos.y>=n.y&&pos.y<=n.y+40){
+      hits.push({uid:n.uid,kind:"note",z:200});
+    }
+  });
   freeforms.forEach(ff=>{
     if(ff.cells.has(cellKey)){
       const z=(LAYER[ff.cat]||1)*10+(ff.zOff||0);
@@ -1162,7 +1504,7 @@ function onDown(e){
   const hit=hits[0]||null;
   const hitUid=hit?hit.uid:null,hitKind=hit?hit.kind:null;
   // Shift+click: toggle multi-select
-  if(shift&&hitUid){
+  if(shift&&hitUid&&hitKind!=="note"){
     if(multiSel.has(hitUid)) multiSel.delete(hitUid);
     else multiSel.add(hitUid);
     selectedId=hitUid;selectedType=hitKind;
@@ -1172,6 +1514,16 @@ function onDown(e){
   if(!hitUid){selectedId=null;selectedType=null;multiSel.clear();renderAll();updateSelPanel();return}
   multiSel.clear();
   selectedId=hitUid;selectedType=hitKind;
+  // Check locked
+  const hitObj=findObj(hitUid);
+  if(hitObj&&hitObj.locked){renderAll();updateSelPanel();return}
+  if(hitKind==="note"){
+    // Start note drag
+    const n=notes.find(x=>x.uid===hitUid);if(!n)return;
+    snapshot();_snapped=true;_isDragActive=true;
+    dragging=hitUid;dragOff={x:pos.x-n.x,y:pos.y-n.y};
+    renderAll();updateSelPanel();return;
+  }
   snapshot();_snapped=true;_isDragActive=true;
   // Start drag
   if(hitKind==="freeform"){isDraggingFF=true;ffDragStart={x:pos.x,y:pos.y}}
@@ -1217,9 +1569,32 @@ function onMove(e){
   }
   // Group-aware prefab drag
   if(!dragging)return;
+  // Note drag
+  const dragNote=notes.find(n=>n.uid===dragging);
+  if(dragNote){
+    dragNote.x=Math.max(0,pos.x-dragOff.x);
+    dragNote.y=Math.max(0,pos.y-dragOff.y);
+    renderAll();return;
+  }
   const mainEl=elements.find(x=>x.uid===dragging);if(!mainEl)return;
   const guids=getGroupUids(dragging);
   let nx=snap(pos.x-dragOff.x),ny=snap(pos.y-dragOff.y);
+  // Alignment guides (only for single non-grouped elements)
+  if(guids.size===1){
+    const guides=getAlignGuides(mainEl.uid,nx,ny,mainEl.w,mainEl.h);
+    guides.forEach(g=>{
+      if(g.type==="v"){
+        if(g.snap==="l") nx=g.pos;
+        else if(g.snap==="r") nx=g.pos-mainEl.w*GS;
+        else if(g.snap==="cx") nx=g.pos-mainEl.w*GS/2;
+      } else {
+        if(g.snap==="t") ny=g.pos;
+        else if(g.snap==="b") ny=g.pos-mainEl.h*GS;
+        else if(g.snap==="cy") ny=g.pos-mainEl.h*GS/2;
+      }
+    });
+    renderGuides(guides);
+  }
   const dx=nx-mainEl.x,dy=ny-mainEl.y;
   if(!dx&&!dy)return;
   // Check bounds for all group members
@@ -1236,6 +1611,7 @@ function onMove(e){
 function onUp(){
   const wasDragging=_isDragActive;
   isDrawing=false;dragging=null;resizing=null;isDraggingFF=false;ffDragStart=null;_isDragActive=false;
+  clearGuides();
   getCv().style.cursor=mode==="draw"||mode==="editshape"?"crosshair":mode==="erase"?"":"default";
   if(wasDragging){updateSelPanel();if(objPanelOpen)renderObjList()}
 }
@@ -1271,14 +1647,15 @@ function recalcGS(){
 
 // ═══ SAVE/LOAD ═══
 let saves=[];
-function ser(){return{config:{...config},elements:elements.map(e=>({...e,x:Math.round(e.x/GS),y:Math.round(e.y/GS)})),freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,cells:[...ff.cells]})),nextUid,nextGroupId}}
+function ser(){return{config:{...config},elements:elements.map(e=>({...e,x:Math.round(e.x/GS),y:Math.round(e.y/GS)})),freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,locked:ff.locked||false,cells:[...ff.cells]})),notes:notes.map(n=>({...n,x:Math.round(n.x/GS*10)/10,y:Math.round(n.y/GS*10)/10})),nextUid,nextGroupId}}
 function deser(d){
   config=d.config;
   freeforms=(d.freeforms||[]).map(ff=>({...ff,cells:new Set(ff.cells)}));
   nextUid=d.nextUid||1;nextGroupId=d.nextGroupId||1;selectedId=null;selectedType=null;multiSel.clear();
   calcGS();
   elements=(d.elements||[]).map(e=>({...e,x:e.x*GS,y:e.y*GS}));
-  buildGrid();document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";renderAll();updateSelPanel();updateInfo();
+  notes=(d.notes||[]).map(n=>({...n,x:n.x*GS,y:n.y*GS}));
+  buildGrid();applyZoom();document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";renderAll();updateSelPanel();updateInfo();
 }
 function loadSaves(){try{saves=JSON.parse(localStorage.getItem("gardenPlannerSaves")||"[]")}catch(e){saves=[]}}
 function persistSaves(){try{localStorage.setItem("gardenPlannerSaves",JSON.stringify(saves))}catch(e){}}
@@ -1546,6 +1923,8 @@ function objRename(uid,kind,span){
   inp.onblur=commit;
   inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();commit()}if(e.key==="Escape"){renderObjList()}};
 }
+// ═══ AUTO-LOAD FROM SHARE LINK ═══
+loadFromHash();
 </script>
 </body>
 </html>
