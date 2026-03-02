@@ -300,6 +300,14 @@
     </div>
     <div style="margin-bottom:32px"><label class="field-label">Which direction is the top of your yard?</label><div id="compass-btns" style="display:flex;gap:6px;margin-top:10px"></div></div>
     <button class="start-btn" id="start-btn">Start Planning →</button>
+    <div style="display:flex;align-items:center;gap:12px;margin:28px 0 0">
+      <div style="flex:1;height:1px;background:#d4dcd4"></div>
+      <span style="font-size:12px;color:#8a9a8a;font-weight:600">OR</span>
+      <div style="flex:1;height:1px;background:#d4dcd4"></div>
+    </div>
+    <button class="start-btn" id="load-btn" style="margin-top:20px;background:#fff;color:#5D8233;border:2px solid #5D8233" onclick="document.getElementById('setup-import').click()">📂 Load Existing Plan</button>
+    <input type="file" id="setup-import" accept=".json" style="display:none" onchange="loadSetupFile(event)">
+    <div class="drop-zone" id="setup-drop" style="margin-top:14px" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');loadSetupDrop(event)">📁 Or drag & drop a .json plan file here</div>
   </div>
 </div>
 
@@ -2119,6 +2127,36 @@ function exportToFile(){loadSaves();
   });
   const blob=new Blob([JSON.stringify({currentState:ser(),savedIterations:compactSaves},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="garden-plan-"+new Date().toISOString().slice(0,10)+".json";a.click()}
 function importFromFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.currentState)deser(d.currentState);if(d.savedIterations){loadSaves();const ex=new Set(saves.map(s=>s.timestamp));d.savedIterations.forEach(s=>{if(!ex.has(s.timestamp))saves.push(s)});saves.sort((a,b)=>b.timestamp-a.timestamp);persistSaves();renderSavesList()}closeSaveModal()}catch(err){alert("Error: "+err.message)}};r.readAsText(f);e.target.value=""}
+
+function _loadPlanFromSetup(json){
+  try{
+    const d=JSON.parse(json);
+    const state=d.currentState;
+    if(!state||!(state.config||state.cfg)){alert("Invalid plan file.");return}
+    // Extract config
+    if(state.v===2) config={width:state.cfg.w,height:state.cfg.h,northDir:state.cfg.d};
+    else config=state.config;
+    // Switch to planner
+    document.getElementById("setup-screen").style.display="none";
+    document.getElementById("planner-screen").classList.add("visible");
+    const name=d.savedIterations?.[0]?.name||"Loaded Plan";
+    addTab(name,config);
+    initPlanner();
+    deser(state);
+    saveCurrentTabState();
+    // Load saved iterations
+    if(d.savedIterations){
+      loadSaves();
+      const ex=new Set(saves.map(s=>s.timestamp));
+      d.savedIterations.forEach(s=>{if(!ex.has(s.timestamp))saves.push(s)});
+      saves.sort((a,b)=>b.timestamp-a.timestamp);
+      persistSaves();
+    }
+    renderTabs();
+  }catch(err){alert("Error loading file: "+err.message)}
+}
+function loadSetupFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>_loadPlanFromSetup(ev.target.result);r.readAsText(f);e.target.value=""}
+function loadSetupDrop(e){const f=e.dataTransfer.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>_loadPlanFromSetup(ev.target.result);r.readAsText(f)}
 
 // ═══ OBJECT MANAGER ═══
 let objPanelOpen=false;
