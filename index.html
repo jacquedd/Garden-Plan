@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garden Planner</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', 'Helvetica Neue', sans-serif; background: #f0f3ec; overflow: hidden; height: 100vh; }
+  #setup-screen {
+    min-height: 100vh; background: linear-gradient(145deg, #1a2e1a 0%, #2d4a2d 40%, #1e3a1e 100%);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .setup-card {
+    background: rgba(255,252,245,0.97); border-radius: 16px; padding: 48px 56px;
+    max-width: 520px; width: 100%; box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+  }
+  .setup-card h1 { font-family: Georgia, Cambria, serif; font-size: 28px; color: #2d4a2d; font-weight: 700; }
+  .setup-card .sub { color: #6b7c6b; font-size: 14px; margin-top: 8px; }
+  label.field-label { display: block; font-size: 12px; font-weight: 600; color: #4a5d4a; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .setup-card input[type=number] { width: 100%; padding: 12px 16px; border: 2px solid #d4dcd4; border-radius: 10px; font-size: 18px; font-family: Georgia, serif; color: #2d4a2d; background: #f8faf8; outline: none; }
+  .setup-card input[type=number]:focus { border-color: #5D8233; }
+  .compass-btn { padding: 8px 16px; border-radius: 8px; border: 2px solid #e0e6e0; background: #fff; color: #4a5d4a; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .compass-btn.active { border-color: #5D8233; background: #5D8233; color: #fff; }
+  .start-btn { width: 100%; padding: 14px 24px; background: linear-gradient(135deg, #5D8233, #4a6d28); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; font-family: Georgia, serif; cursor: pointer; box-shadow: 0 4px 16px rgba(93,130,51,0.35); }
+  .start-btn:active { transform: scale(0.98); }
+
+  #planner-screen { display: none; height: 100vh; }
+  #planner-screen.visible { display: flex; }
+  .sidebar { width: 260px; background: rgba(255,252,245,0.98); border-right: 1px solid #d4dcd4; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+  .sidebar-header { padding: 14px 16px 10px; border-bottom: 1px solid #e8ede8; display: flex; align-items: center; gap: 10px; }
+  .sidebar-header .title { font-family: Georgia, serif; font-weight: 700; font-size: 16px; color: #2d4a2d; }
+  .mode-toggle { display: flex; margin: 10px 12px 6px; border-radius: 8px; overflow: hidden; border: 1.5px solid #d4dcd4; }
+  .mode-btn { flex: 1; padding: 7px 0; text-align: center; font-size: 11px; font-weight: 700; cursor: pointer; border: none; background: #fff; color: #6b7c6b; }
+  .mode-btn.active { background: #5D8233; color: #fff; }
+  .cat-tabs { padding: 6px 12px 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .cat-tab { padding: 4px 8px; border-radius: 6px; border: none; font-size: 10px; font-weight: 600; cursor: pointer; background: #eef2ea; color: #4a5d4a; }
+  .cat-tab.active { background: #5D8233; color: #fff; }
+
+  /* Search bar */
+  .search-bar { padding: 6px 12px; }
+  .search-input { width: 100%; padding: 7px 10px 7px 30px; border: 1.5px solid #d4dcd4; border-radius: 8px; font-size: 12px; color: #2d4a2d; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238a9a8a' stroke-width='2'%3E%3Ccircle cx='6' cy='6' r='4.5'/%3E%3Cline x1='9.5' y1='9.5' x2='13' y2='13'/%3E%3C/svg%3E") 9px center no-repeat; outline: none; }
+  .search-input:focus { border-color: #5D8233; }
+
+  .element-list { flex: 1; overflow-y: auto; padding: 6px 12px; }
+  .element-btn { width: 100%; padding: 7px 10px; margin-bottom: 4px; border-radius: 8px; border: 1.5px solid #e0e6e0; background: #fff; cursor: pointer; display: flex; align-items: center; gap: 8px; text-align: left; }
+  .element-btn:hover { border-color: #5D8233; background: #f5f9f0; }
+  .element-btn.active-draw { border-color: #FFD600; background: #FFFDE7; box-shadow: 0 0 0 2px rgba(255,214,0,0.3); }
+  .element-btn .icon { font-size: 16px; flex-shrink: 0; }
+  .element-btn .name { font-size: 11px; font-weight: 600; color: #2d4a2d; }
+  .element-btn .dims { font-size: 9px; color: #8a9a8a; }
+  .element-btn .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; margin-left: auto; }
+  .el-count { padding: 2px 12px 4px; font-size: 10px; color: #8a9a8a; }
+
+  .sel-panel { padding: 12px; border-top: 1px solid #e8ede8; background: #f8faf5; }
+  .sel-panel .sel-info { font-size: 11px; color: #6b7c6b; margin-bottom: 8px; }
+  .dim-row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .dim-row > div { flex: 1; }
+  .dim-row label { display: block; font-size: 10px; font-weight: 600; color: #7b8d7b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .nudge-btn { width: 20px; height: 18px; border: 1px solid #d4dcd4; border-radius: 3px; background: #fff; color: #6b7c6b; font-size: 8px; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+  .nudge-btn:hover { background: #eef5e5; border-color: #5D8233; color: #2d4a2d; }
+  .nudge-btn:active { background: #d4e8c4; }
+  .dim-input { width: 100%; padding: 5px 6px; border: 1.5px solid #d4dcd4; border-radius: 6px; font-size: 13px; font-family: Georgia, serif; color: #2d4a2d; background: #fff; outline: none; text-align: center; }
+  .dim-input:focus { border-color: #5D8233; }
+  .color-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .color-row label { font-size: 10px; font-weight: 600; color: #7b8d7b; text-transform: uppercase; }
+  .color-pick { width: 32px; height: 24px; border: 1.5px solid #d4dcd4; border-radius: 4px; cursor: pointer; padding: 0; background: none; }
+  .action-btn { flex: 1; padding: 7px 0; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; }
+  .controls { padding: 8px 12px; border-top: 1px solid #e8ede8; display: flex; align-items: center; gap: 8px; font-size: 11px; color: #4a5d4a; }
+  .draw-panel { padding: 10px 12px; border-top: 1px solid #e8ede8; background: #FFFDE7; }
+  .draw-panel .dp-title { font-size: 11px; font-weight: 700; color: #9e8600; margin-bottom: 6px; }
+  .draw-panel .dp-info { font-size: 10px; color: #8a9a8a; margin-bottom: 6px; }
+  .brush-size-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .brush-size-row label { font-size: 10px; font-weight: 600; color: #6b7c6b; white-space: nowrap; }
+  .brush-size-row input[type=range] { flex: 1; accent-color: #5D8233; }
+  .brush-size-row .bs-val { font-size: 11px; font-weight: 700; color: #2d4a2d; min-width: 28px; text-align: center; }
+
+  .canvas-area { flex: 1; overflow: auto; position: relative; padding: 24px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 0 4px; flex-wrap: wrap; gap: 8px; }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .topbar-info .t { font-size: 14px; font-weight: 700; color: #2d4a2d; }
+  .topbar-info .s { font-size: 11px; color: #7b8d7b; }
+  .tb-btn { padding: 7px 14px; border-radius: 8px; border: 1.5px solid #d4dcd4; background: #fff; color: #6b7c6b; font-size: 11px; font-weight: 600; cursor: pointer; }
+  .tb-btn:hover { border-color: #5D8233; color: #4a6d28; }
+  .house-bar { height: 32px; background: linear-gradient(0deg, #795548, #6D4C41); border-radius: 0 0 8px 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  #canvas { position: relative; background: #c8dba5; background-image: linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px); border: 2px solid #8a9a6b; border-bottom: none; border-radius: 8px 8px 0 0; box-shadow: 0 4px 24px rgba(0,0,0,0.1); user-select: none; }
+  #canvas.draw-mode { cursor: crosshair; }
+  #canvas.erase-mode { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18'%3E%3Crect x='1' y='1' width='16' height='16' fill='white' stroke='%23c62828' stroke-width='2' rx='2'/%3E%3Cline x1='5' y1='5' x2='13' y2='13' stroke='%23c62828' stroke-width='2'/%3E%3Cline x1='13' y1='5' x2='5' y2='13' stroke='%23c62828' stroke-width='2'/%3E%3C/svg%3E") 9 9, crosshair; }
+  .grid-marker { position: absolute; background: rgba(0,0,0,0.07); pointer-events: none; }
+  .scale-label { position: absolute; font-size: 8px; color: rgba(0,0,0,0.3); pointer-events: none; font-weight: 600; }
+  .ff-cell { position: absolute; pointer-events: none; }
+  .ff-group { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .ff-group.selectable { pointer-events: auto; cursor: grab; }
+  .ff-group .fg-label { position: absolute; font-size: 9px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.6); pointer-events: none; white-space: nowrap; }
+  .placed-el { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible; cursor: grab; border: 1.5px solid rgba(0,0,0,0.2); border-radius: 4px; opacity: 0.88; }
+  .placed-el.round { border-radius: 50%; }
+  .placed-el.selected { border: 2.5px solid #FFD600 !important; box-shadow: 0 0 0 3px rgba(255,214,0,0.3), 0 2px 8px rgba(0,0,0,0.2) !important; z-index: 10 !important; }
+  .placed-el.grouped { border: 2px dashed #64B5F6 !important; box-shadow: 0 0 0 2px rgba(100,181,246,0.25) !important; }
+  .ff-cell.editing { outline: 1.5px dashed #AB47BC; outline-offset: -1px; }
+  .placed-el .el-icon { line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); pointer-events: none; }
+  .placed-el .el-label { font-size: 8px; color: #fff; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.5); margin-top: 1px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+  .resize-handle { position: absolute; width: 10px; height: 10px; background: #FFD600; border: 1.5px solid #c9a800; border-radius: 2px; z-index: 20; }
+  .resize-handle.nw { top: -5px; left: -5px; cursor: nw-resize; } .resize-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+  .resize-handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; } .resize-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+  .resize-handle.n { top: -5px; left: calc(50% - 5px); cursor: n-resize; } .resize-handle.s { bottom: -5px; left: calc(50% - 5px); cursor: s-resize; }
+  .resize-handle.e { top: calc(50% - 5px); right: -5px; cursor: e-resize; } .resize-handle.w { top: calc(50% - 5px); left: -5px; cursor: w-resize; }
+  .rotate-handle { position: absolute; top: -26px; left: calc(50% - 10px); width: 20px; height: 20px; background: #fff; border: 1.5px solid #FFD600; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 20; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+  .rotate-handle:hover { background: #FFF9C4; }
+  .hint { margin-top: 10px; font-size: 11px; color: #8a9a8a; padding: 0 4px; }
+  .draw-preview { position: absolute; pointer-events: none; opacity: 0.5; }
+  .compass { width: 48px; height: 48px; border-radius: 50%; background: rgba(255,252,245,0.95); border: 2px solid #b8c5a8; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+  .compass-inner { transition: transform 0.3s; text-align: center; line-height: 1; }
+  .compass-inner .n { color: #c0392b; font-weight: 900; font-size: 10px; } .compass-inner .au { color: #c0392b; font-size: 14px; } .compass-inner .ad { color: #888; font-size: 11px; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center; }
+  .modal-overlay.visible { display:flex; }
+  .modal-box { background:rgba(255,252,245,0.98); border-radius:14px; padding:28px 32px; max-width:420px; width:90%; box-shadow:0 16px 60px rgba(0,0,0,0.3); }
+  .modal-box h2 { font-family:Georgia,serif; font-size:20px; color:#2d4a2d; margin-bottom:6px; }
+  .modal-box .msub { font-size:12px; color:#8a9a8a; margin-bottom:18px; }
+  .modal-row { display:flex; gap:12px; margin-bottom:14px; }
+  .modal-row > div { flex:1; }
+  .modal-box input[type=number] { width:100%; padding:10px 14px; border:2px solid #d4dcd4; border-radius:8px; font-size:16px; font-family:Georgia,serif; color:#2d4a2d; background:#f8faf8; outline:none; }
+  .modal-box input[type=number]:focus { border-color:#5D8233; }
+  .modal-actions { display:flex; gap:10px; margin-top:18px; }
+  .modal-cancel { flex:1; padding:10px; border-radius:8px; border:1.5px solid #d4dcd4; background:#fff; color:#6b7c6b; font-size:14px; font-weight:600; cursor:pointer; }
+  .modal-save { flex:1; padding:10px; border-radius:8px; border:none; background:linear-gradient(135deg,#5D8233,#4a6d28); color:#fff; font-size:14px; font-weight:700; cursor:pointer; }
+  .modal-warning { font-size:11px; color:#c0392b; margin-top:10px; display:none; }
+  .saves-list { max-height: 260px; overflow-y: auto; margin: 12px 0; }
+  .save-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1.5px solid #e0e6e0; border-radius: 8px; margin-bottom: 6px; background: #fff; cursor: pointer; }
+  .save-item:hover { border-color: #5D8233; background: #f5f9f0; }
+  .save-item .si-name { font-size: 13px; font-weight: 600; color: #2d4a2d; }
+  .save-item .si-meta { font-size: 10px; color: #8a9a8a; margin-top: 2px; }
+  .save-item .si-actions { display: flex; gap: 4px; }
+  .si-btn { padding: 4px 8px; border-radius: 4px; border: 1px solid #d4dcd4; background: #fff; font-size: 10px; cursor: pointer; color: #6b7c6b; }
+  .si-btn.danger { border-color: #e57373; color: #c62828; }
+  .save-name-input { width: 100%; padding: 10px 14px; border: 2px solid #d4dcd4; border-radius: 8px; font-size: 14px; color: #2d4a2d; background: #f8faf8; outline: none; }
+  .save-name-input:focus { border-color: #5D8233; }
+  .file-row { display: flex; gap: 8px; margin-top: 12px; }
+  .file-btn { flex: 1; padding: 8px; border-radius: 8px; border: 1.5px dashed #d4dcd4; background: #fff; color: #6b7c6b; font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; }
+  .file-btn:hover { border-color: #5D8233; color: #4a6d28; }
+
+  /* Object Manager Panel */
+  .obj-panel {
+    width: 0; background: rgba(255,252,245,0.98); border-left: 1px solid #d4dcd4;
+    display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+    transition: width 0.25s ease;
+  }
+  .obj-panel.open { width: 340px; }
+  .obj-header {
+    padding: 12px 14px; border-bottom: 1px solid #e8ede8; display: flex;
+    align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .obj-header .oh-title { font-family: Georgia, serif; font-weight: 700; font-size: 14px; color: #2d4a2d; }
+  .obj-header .oh-count { font-size: 11px; color: #8a9a8a; }
+  .obj-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #8a9a8a; padding: 4px; }
+  .obj-close:hover { color: #c62828; }
+  .obj-toolbar { padding: 8px 12px; border-bottom: 1px solid #e8ede8; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+  .obj-toolbar input {
+    width: 100%; padding: 6px 10px 6px 28px; border: 1.5px solid #d4dcd4; border-radius: 6px;
+    font-size: 11px; color: #2d4a2d; outline: none;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%238a9a8a' stroke-width='2'%3E%3Ccircle cx='5' cy='5' r='3.5'/%3E%3Cline x1='8' y1='8' x2='11' y2='11'/%3E%3C/svg%3E") 8px center no-repeat;
+  }
+  .obj-toolbar input:focus { border-color: #5D8233; }
+  .obj-filters { display: flex; flex-wrap: wrap; gap: 3px; }
+  .obj-ftab { padding: 3px 7px; border-radius: 5px; border: none; font-size: 9px; font-weight: 600; cursor: pointer; background: #eef2ea; color: #4a5d4a; }
+  .obj-ftab.active { background: #5D8233; color: #fff; }
+  .obj-ftab .ftab-count { font-weight: 400; opacity: 0.7; margin-left: 2px; }
+  .obj-list { flex: 1; overflow-y: auto; padding: 0; }
+  .obj-group-hdr {
+    display: flex; align-items: center; gap: 6px; padding: 8px 12px 6px;
+    cursor: pointer; user-select: none; position: sticky; top: 0;
+    background: rgba(255,252,245,0.97); border-bottom: 1px solid #e8ede8; z-index: 1;
+  }
+  .obj-group-hdr:hover { background: #f5f9f0; }
+  .obj-group-hdr .og-arrow { font-size: 9px; color: #8a9a8a; transition: transform 0.15s; }
+  .obj-group-hdr .og-arrow.collapsed { transform: rotate(-90deg); }
+  .obj-group-hdr .og-icon { font-size: 13px; }
+  .obj-group-hdr .og-label { font-size: 11px; font-weight: 700; color: #2d4a2d; flex: 1; }
+  .obj-group-hdr .og-count { font-size: 10px; color: #8a9a8a; background: #eef2ea; padding: 1px 6px; border-radius: 8px; }
+  .obj-group-body { overflow: hidden; }
+  .obj-group-body.collapsed { display: none; }
+  .obj-row {
+    display: flex; align-items: center; gap: 6px; padding: 5px 12px 5px 24px;
+    border-bottom: 1px solid #f5f7f2; cursor: pointer; transition: background 0.1s;
+    min-height: 34px;
+  }
+  .obj-row:hover { background: #f5f9f0; }
+  .obj-row.active { background: #eef5e5; border-left: 3px solid #5D8233; padding-left: 21px; }
+  .obj-row .or-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
+  .obj-row .or-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; cursor: pointer; position: relative; }
+  .obj-row .or-swatch input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .obj-row .or-name { font-size: 11px; font-weight: 600; color: #2d4a2d; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .obj-row .or-dims { font-size: 9px; color: #8a9a8a; flex-shrink: 0; white-space: nowrap; }
+  .or-actions { display: flex; gap: 1px; flex-shrink: 0; }
+  .or-abtn { background: none; border: none; font-size: 11px; cursor: pointer; color: #bbb; padding: 2px 3px; border-radius: 3px; }
+  .or-abtn:hover { color: #2d4a2d; background: #eef2ea; }
+  .or-abtn.danger:hover { color: #c62828; background: #fce4ec; }
+  .or-field {
+    width: 36px; padding: 2px 3px; border: 1px solid #d4dcd4; border-radius: 4px;
+    font-size: 10px; text-align: center; color: #2d4a2d; outline: none; background: #fff;
+  }
+  .or-field:focus { border-color: #5D8233; background: #f8faf5; }
+  .or-label { font-size: 8px; color: #8a9a8a; text-align: center; }
+  .or-expand {
+    padding: 4px 12px 8px 24px; background: #fafcf7; border-bottom: 1px solid #e8ede8;
+    display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  }
+  .or-expand.hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="setup-screen">
+  <div class="setup-card">
+    <div style="text-align:center;margin-bottom:36px"><div style="font-size:48px;margin-bottom:8px">🌿</div><h1>Garden Planner</h1><p class="sub">Enter your backyard dimensions to get started</p></div>
+    <div style="display:flex;gap:16px;margin-bottom:28px">
+      <div style="flex:1"><label class="field-label">Width (ft)</label><input type="number" id="inp-width" value="50" min="10" max="200"></div>
+      <div style="flex:1"><label class="field-label">Depth (ft)</label><input type="number" id="inp-height" value="38" min="10" max="200"></div>
+    </div>
+    <div style="margin-bottom:32px"><label class="field-label">Which direction is the top of your yard?</label><div id="compass-btns" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div></div>
+    <button class="start-btn" id="start-btn">Start Planning →</button>
+  </div>
+</div>
+
+<div id="planner-screen">
+  <div class="sidebar">
+    <div class="sidebar-header"><span style="font-size:20px">🌿</span><span class="title">Garden Planner</span></div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-place" onclick="setMode('place')">📦 Place</button>
+      <button class="mode-btn" id="mode-draw" onclick="setMode('draw')">✏️ Draw</button>
+      <button class="mode-btn" id="mode-erase" onclick="setMode('erase')">🧹 Erase</button>
+    </div>
+    <div class="cat-tabs" id="cat-tabs"></div>
+    <div class="search-bar" id="search-bar" style="display:none"><input type="text" class="search-input" id="search-input" placeholder="Search flowers..." oninput="renderList()"></div>
+    <div class="el-count" id="el-count" style="display:none"></div>
+    <div class="element-list" id="element-list"></div>
+
+    <div class="draw-panel" id="draw-panel" style="display:none">
+      <div class="dp-title">✏️ Drawing: <span id="dp-brush-name">—</span></div>
+      <div class="color-row"><label>Color</label><input type="color" class="color-pick" id="draw-color" onchange="if(drawBrush)drawBrush._color=this.value" value="#6B4226"></div>
+      <div class="brush-size-row"><label>Brush</label><input type="range" id="brush-size" min="1" max="5" value="1" oninput="brushSize=+this.value;document.getElementById('bs-val').textContent=this.value+'ft'"><span class="bs-val" id="bs-val">1ft</span></div>
+      <div class="dp-info">Click & drag to paint</div>
+      <button class="action-btn" style="width:100%;border:1.5px solid #FFD600;background:#fff;color:#9e8600;" onclick="commitDrawing()">✓ Finish Shape</button>
+    </div>
+    <div class="draw-panel" id="erase-panel" style="display:none">
+      <div class="dp-title" style="color:#c62828;">🧹 Eraser Mode</div>
+      <div class="brush-size-row"><label>Size</label><input type="range" id="erase-size" min="1" max="5" value="1" oninput="eraseSize=+this.value;document.getElementById('es-val').textContent=this.value+'ft'"><span class="bs-val" id="es-val">1ft</span></div>
+      <div class="dp-info">Drag to erase cells</div>
+    </div>
+
+    <div class="draw-panel" id="edit-shape-panel" style="display:none">
+      <div class="dp-title" style="color:#7B1FA2;">✏️ Editing: <span id="esp-name">—</span></div>
+      <div style="display:flex;gap:4px;margin-bottom:8px">
+        <button class="mode-btn active" id="es-mode-add" onclick="setEditShapeMode('add')">➕ Add</button>
+        <button class="mode-btn" id="es-mode-erase" onclick="setEditShapeMode('erase')">➖ Remove</button>
+      </div>
+      <div class="brush-size-row"><label>Brush</label><input type="range" id="es-brush-size" min="1" max="5" value="1" oninput="editShapeBrushSize=+this.value;document.getElementById('esb-val').textContent=this.value+'ft'"><span class="bs-val" id="esb-val">1ft</span></div>
+      <div class="dp-info" id="esp-info">Draw to add cells to this shape</div>
+      <button class="action-btn" style="width:100%;border:1.5px solid #AB47BC;background:#F3E5F5;color:#7B1FA2;font-weight:700" onclick="finishEditShape()">✓ Done Editing</button>
+    </div>
+
+    <div class="sel-panel" id="sel-panel" style="display:none">
+      <div class="sel-info" id="sel-info"></div>
+      <div id="sel-group-info" style="display:none;margin-bottom:6px;padding:4px 8px;background:#E3F2FD;border-radius:6px;font-size:10px;color:#1565C0;font-weight:600">🔗 Grouped</div>
+      <div id="sel-multi-info" style="display:none;margin-bottom:6px;padding:4px 8px;background:#FFF3E0;border-radius:6px;font-size:10px;color:#E65100;font-weight:600"></div>
+      <div class="dim-row" style="margin-bottom:6px">
+        <div style="flex:2"><label>Name</label><input type="text" class="dim-input" id="sel-name" style="text-align:left;padding-left:6px" onchange="changeSelectedName(this.value)"></div>
+        <div style="flex:0 0 48px;position:relative"><label>Icon</label><input type="text" class="dim-input" id="sel-icon" style="font-size:16px;cursor:pointer" maxlength="2" onchange="changeSelectedIcon(this.value)" onclick="toggleIconPicker()" readonly></div>
+      </div>
+      <div id="icon-picker" style="display:none;max-height:160px;overflow-y:auto;border:1.5px solid #d4dcd4;border-radius:8px;background:#fff;padding:6px;margin-bottom:6px">
+        <input type="text" id="icon-search" placeholder="Search icons..." style="width:100%;padding:4px 8px;border:1px solid #d4dcd4;border-radius:4px;font-size:10px;margin-bottom:4px;outline:none" oninput="filterIcons()">
+        <div id="icon-grid" style="display:flex;flex-wrap:wrap;gap:2px"></div>
+      </div>
+      <div class="color-row"><label>Color</label><input type="color" class="color-pick" id="sel-color" onchange="changeSelectedColor(this.value)"></div>
+      <div class="dim-row" id="pos-row">
+        <div><label>X (ft)</label><input type="number" class="dim-input" id="sel-x" min="0" max="999" onchange="setSelPos('x',this.value)" onfocus="this.select()"></div>
+        <div><label>Y (ft)</label><input type="number" class="dim-input" id="sel-y" min="0" max="999" onchange="setSelPos('y',this.value)" onfocus="this.select()"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto">
+          <label style="font-size:8px">&nbsp;</label>
+          <div style="display:grid;grid-template-columns:20px 20px 20px;grid-template-rows:18px 18px;gap:1px">
+            <div></div>
+            <button class="nudge-btn" onclick="nudgeSel(0,-1)" title="Nudge up">▲</button>
+            <div></div>
+            <button class="nudge-btn" onclick="nudgeSel(-1,0)" title="Nudge left">◀</button>
+            <button class="nudge-btn" onclick="nudgeSel(0,1)" title="Nudge down">▼</button>
+            <button class="nudge-btn" onclick="nudgeSel(1,0)" title="Nudge right">▶</button>
+          </div>
+        </div>
+      </div>
+      <div class="dim-row" id="dim-row">
+        <div><label>Width (ft)</label><input type="number" class="dim-input" id="sel-width" min="1" max="200" onchange="setSelDim('w',this.value)" onfocus="this.select()"></div>
+        <div><label>Depth (ft)</label><input type="number" class="dim-input" id="sel-height" min="1" max="200" onchange="setSelDim('h',this.value)" onfocus="this.select()"></div>
+      </div>
+      <div class="dim-row" style="margin-bottom:4px">
+        <div style="flex:1;display:flex;gap:4px;align-items:center">
+          <label style="font-size:10px;font-weight:600;color:#7b8d7b;white-space:nowrap">LAYER</label>
+          <button class="action-btn" style="flex:0;padding:4px 7px;border:1px solid #d4dcd4;background:#fff;color:#6b7c6b;font-size:10px" onclick="layerMove(-1)" title="Send Back">▼</button>
+          <button class="action-btn" style="flex:0;padding:4px 7px;border:1px solid #d4dcd4;background:#fff;color:#6b7c6b;font-size:10px" onclick="layerMove(1)" title="Bring Forward">▲</button>
+          <button class="action-btn" style="flex:0;padding:4px 7px;border:1px solid #d4dcd4;background:#fff;color:#6b7c6b;font-size:9px" onclick="layerMove(-99)" title="Send to Back">⇊</button>
+          <button class="action-btn" style="flex:0;padding:4px 7px;border:1px solid #d4dcd4;background:#fff;color:#6b7c6b;font-size:9px" onclick="layerMove(99)" title="Bring to Front">⇈</button>
+        </div>
+      </div>
+      <div class="dim-row" id="edit-shape-row" style="display:none">
+        <button class="action-btn" style="flex:1;border:1.5px solid #AB47BC;background:#F3E5F5;color:#7B1FA2;font-weight:700" onclick="startEditShape()">✏️ Edit Shape</button>
+      </div>
+      <div class="dim-row">
+        <button class="action-btn" style="border:1.5px solid #e57373;background:#fff;color:#c62828;" onclick="deleteSelected()">🗑</button>
+        <button class="action-btn" style="border:1.5px solid #5D8233;background:#fff;color:#5D8233;" onclick="duplicateSelected()">📋</button>
+        <button class="action-btn" id="rotate-btn" style="border:1.5px solid #FFD600;background:#fff;color:#9e8600;" onclick="rotateSelected()" title="Rotate 45° clockwise">↻ 45°</button>
+        <button class="action-btn" id="rotate-ccw-btn" style="border:1.5px solid #FFD600;background:#fff;color:#9e8600;" onclick="rotateCCW()" title="Rotate 45° counter-clockwise">↺</button>
+        <button class="action-btn" id="group-btn" style="border:1.5px solid #64B5F6;background:#fff;color:#1565C0;" onclick="groupSelected()">🔗</button>
+      </div>
+    </div>
+    <div class="controls"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chk-labels" checked> Labels</label></div>
+  </div>
+  <div class="canvas-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="compass"><div class="compass-inner" id="compass-display"><div class="n">N</div><div class="au">▲</div><div style="height:6px"></div><div class="ad">▼</div></div></div>
+        <div class="topbar-info"><div class="t" id="info-dims"></div><div class="s" id="info-count"></div></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="tb-btn" id="undo-btn" onclick="undo()" title="Undo (Ctrl+Z)" disabled style="opacity:0.4">↩ Undo</button>
+        <button class="tb-btn" id="redo-btn" onclick="redo()" title="Redo (Ctrl+Shift+Z)" disabled style="opacity:0.4">↪ Redo</button>
+        <div style="width:1px;height:20px;background:#d4dcd4"></div>
+        <button class="tb-btn" onclick="toggleObjPanel()" id="obj-toggle-btn">📋 Objects</button>
+        <button class="tb-btn" onclick="openSaveModal()" style="background:#FFFDE7;border-color:#FFD600;color:#9e8600;">💾 Save</button>
+        <button class="tb-btn" onclick="openEditModal()">✏️ Dims</button>
+        <button class="tb-btn" onclick="clearAll()">Clear</button>
+      </div>
+    </div>
+    <div id="canvas"></div>
+    <div class="house-bar" id="house-bar">🏠 HOUSE</div>
+    <div class="hint" id="hint-text">Click to select • Drag to move • Arrow keys nudge (Shift+Arrow ×5) • Ctrl+G group • [ ] layers • Ctrl+D dup • Del remove</div>
+  </div>
+
+  <!-- Object Manager Panel -->
+  <div class="obj-panel" id="obj-panel">
+    <div class="obj-header">
+      <div>
+        <span class="oh-title">📋 Objects</span>
+        <span class="oh-count" id="obj-count"></span>
+      </div>
+      <button class="obj-close" onclick="toggleObjPanel()">✕</button>
+    </div>
+    <div class="obj-toolbar">
+      <input type="text" id="obj-search" placeholder="Search objects..." oninput="renderObjList()">
+      <div class="obj-filters" id="obj-filters"></div>
+    </div>
+    <div class="obj-list" id="obj-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="edit-modal"><div class="modal-box"><h2>✏️ Edit Dimensions</h2><p class="msub">Adjust your backyard size</p><div class="modal-row"><div><label class="field-label">Width (ft)</label><input type="number" id="edit-width" min="10" max="200"></div><div><label class="field-label">Depth (ft)</label><input type="number" id="edit-height" min="10" max="200"></div></div><div style="margin-bottom:8px"><label class="field-label">Top of yard faces</label><div id="edit-compass-btns" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div></div><div class="modal-warning" id="edit-warning">⚠️ Some elements may fall outside new boundaries.</div><div class="modal-actions"><button class="modal-cancel" onclick="closeEditModal()">Cancel</button><button class="modal-save" onclick="applyEdit()">Apply</button></div></div></div>
+
+<div class="modal-overlay" id="save-modal"><div class="modal-box" style="max-width:480px"><h2>💾 Saved Iterations</h2><p class="msub">Save your current layout or load a previous one</p><div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" class="save-name-input" id="save-name" placeholder="Name this iteration..."><button class="modal-save" style="flex:none;padding:10px 20px;white-space:nowrap" onclick="saveIteration()">Save</button></div><div class="saves-list" id="saves-list"></div><div class="file-row"><button class="file-btn" onclick="exportToFile()">📥 Export</button><button class="file-btn" onclick="document.getElementById('import-file').click()">📤 Import</button><input type="file" id="import-file" accept=".json" style="display:none" onchange="importFromFile(event)"></div><div class="modal-actions" style="margin-top:14px"><button class="modal-cancel" onclick="closeSaveModal()">Close</button></div></div></div>
+
+<script>
+let GS=20;
+const DIRS=["N","NE","E","SE","S","SW","W","NW"];
+const DA={N:0,NE:45,E:90,SE:135,S:180,SW:225,W:270,NW:315};
+
+// ═══ 100 FLOWERS ═══
+const FLOWERS=[
+  ["Rose","🌹","#C62828"],["Tulip","🌷","#E91E63"],["Sunflower","🌻","#F9A825"],["Daisy","🌼","#FFF176"],["Lavender","💜","#7E57C2"],
+  ["Peony","🌸","#F48FB1"],["Hydrangea","💠","#5C6BC0"],["Dahlia","🌺","#AD1457"],["Lily","🪷","#FF7043"],["Marigold","🟠","#EF6C00"],
+  ["Orchid","🪻","#AB47BC"],["Chrysanthemum","🌼","#FFB300"],["Iris","💜","#5E35B1"],["Daffodil","🌼","#FDD835"],["Pansy","🟣","#6A1B9A"],
+  ["Geranium","🌺","#D32F2F"],["Begonia","🌺","#E53935"],["Zinnia","🌸","#FF5722"],["Petunia","💜","#8E24AA"],["Snapdragon","🌸","#EC407A"],
+  ["Carnation","🌸","#F06292"],["Aster","💜","#7B1FA2"],["Cosmos","🌸","#F8BBD0"],["Delphinium","💙","#1E88E5"],["Foxglove","💜","#9C27B0"],
+  ["Hollyhock","🌸","#C2185B"],["Jasmine","⚪","#F5F5F5"],["Gardenia","⚪","#FAFAFA"],["Camellia","🌺","#B71C1C"],["Magnolia","🤍","#F3E5F5"],
+  ["Lilac","💜","#CE93D8"],["Wisteria","💜","#BA68C8"],["Azalea","🌺","#E91E63"],["Rhododendron","🌺","#D81B60"],["Hibiscus","🌺","#C2185B"],
+  ["Bougainvillea","🌸","#AD1457"],["Clematis","💜","#7B1FA2"],["Morning Glory","💙","#1565C0"],["Sweet Pea","🌸","#EC407A"],["Verbena","💜","#8E24AA"],
+  ["Salvia","🔴","#B71C1C"],["Coneflower","🌼","#E65100"],["Black-Eyed Susan","🌼","#F57F17"],["Columbine","💜","#6A1B9A"],["Bleeding Heart","💗","#E91E63"],
+  ["Anemone","🌸","#F48FB1"],["Ranunculus","🌼","#FFEB3B"],["Hellebore","💚","#558B2F"],["Crocus","💜","#7E57C2"],["Allium","💜","#9C27B0"],
+  ["Agapanthus","💙","#1976D2"],["Amaryllis","🌺","#C62828"],["Bluebell","💙","#42A5F5"],["Buttercup","🌼","#FFD600"],["Calendula","🟠","#EF6C00"],
+  ["Calla Lily","⚪","#EEEEEE"],["Candytuft","⚪","#F5F5F5"],["Celosia","🔴","#D32F2F"],["Clover","💚","#388E3C"],["Cornflower","💙","#1E88E5"],
+  ["Dianthus","🌸","#E91E63"],["Echinacea","🌸","#8D6E63"],["Freesia","🌼","#FFD54F"],["Fritillaria","🟣","#6A1B9A"],["Gaillardia","🌼","#E65100"],
+  ["Gladiolus","🌸","#C2185B"],["Heather","💜","#AB47BC"],["Heliotrope","💜","#7B1FA2"],["Hyacinth","💜","#5C6BC0"],["Impatiens","🌸","#EC407A"],
+  ["Lantana","🟠","#E65100"],["Larkspur","💙","#1976D2"],["Liatris","💜","#8E24AA"],["Lobelia","💙","#1565C0"],["Lupine","💜","#7E57C2"],
+  ["Mandevilla","🌸","#E91E63"],["Narcissus","🌼","#FDD835"],["Nasturtium","🟠","#EF6C00"],["Nemesia","🌸","#F06292"],["Nigella","💙","#42A5F5"],
+  ["Oleander","🌸","#F48FB1"],["Osteospermum","💜","#AB47BC"],["Phlox","🌸","#EC407A"],["Plumeria","🤍","#FFF9C4"],["Poppy","🌺","#D32F2F"],
+  ["Primrose","🌼","#FFEB3B"],["Protea","🌸","#AD1457"],["Queen Anne's Lace","⚪","#FAFAFA"],["Ranunculus","🌼","#FFD54F"],["Rose of Sharon","🌸","#C2185B"],
+  ["Rudbeckia","🌼","#F57F17"],["Scabiosa","💜","#7E57C2"],["Sedum","💚","#689F38"],["Snow Drop","⚪","#F5F5F5"],["Statice","💜","#7B1FA2"],
+  ["Stock","🌸","#EC407A"],["Sweet William","🌸","#D81B60"],["Tickseed","🌼","#FFD600"],["Torch Lily","🔴","#D84315"],["Trillium","⚪","#E8EAF6"],
+  ["Tuberose","⚪","#FFFDE7"],["Veronica","💙","#1565C0"],["Viola","💜","#6A1B9A"],["Yarrow","🌼","#F9A825"],["Zephyr Lily","🤍","#FCE4EC"],
+  ["Daylily","🧡","#E65100"],
+];
+const FLOWER_TYPES=FLOWERS.map(([name,icon,color])=>({id:"fl-"+name.toLowerCase().replace(/[^a-z]/g,"-"),label:name,icon,color,w:1,h:1,cat:"flowers"}));
+
+const PREFAB_TYPES=[
+  // Beds
+  {id:"raised-bed",label:"Raised Bed",icon:"🌱",color:"#6B4226",w:4,h:8,cat:"beds"},
+  {id:"garden-plot",label:"Garden Plot",icon:"🥕",color:"#5D8233",w:6,h:6,cat:"beds"},
+  {id:"herb-garden",label:"Herb Garden",icon:"🌿",color:"#7BA05B",w:3,h:3,cat:"beds"},
+  {id:"flower-bed",label:"Flower Bed",icon:"🌸",color:"#C9677E",w:5,h:3,cat:"beds"},
+  {id:"veggie-row",label:"Veggie Row",icon:"🥬",color:"#558B2F",w:8,h:2,cat:"beds"},
+  {id:"planter-box",label:"Planter Box",icon:"🌱",color:"#8D6E63",w:2,h:2,cat:"beds"},
+  // Plants
+  {id:"tree-large",label:"Large Tree",icon:"🌳",color:"#2D5F2D",w:3,h:3,cat:"plants"},
+  {id:"tree-small",label:"Small Tree",icon:"🌲",color:"#3A7D44",w:2,h:2,cat:"plants"},
+  {id:"shrub",label:"Shrub",icon:"🪴",color:"#4A8B5C",w:2,h:2,cat:"plants"},
+  {id:"bush-row",label:"Hedge Row",icon:"🌳",color:"#2E7D32",w:8,h:1,cat:"plants"},
+  {id:"fruit-tree",label:"Fruit Tree",icon:"🍎",color:"#43A047",w:3,h:3,cat:"plants"},
+  {id:"berry-bush",label:"Berry Bush",icon:"🫐",color:"#5C6BC0",w:2,h:2,cat:"plants"},
+  {id:"vine-trellis",label:"Vine Trellis",icon:"🍇",color:"#6D4C41",w:4,h:1,cat:"plants"},
+  {id:"ornamental-grass",label:"Ornamental Grass",icon:"🌾",color:"#9E9D24",w:2,h:2,cat:"plants"},
+  // Furniture
+  {id:"patio-table",label:"Patio Table",icon:"🪑",color:"#6D4C41",w:3,h:3,cat:"furniture"},
+  {id:"dining-set",label:"Dining Set",icon:"🍽️",color:"#795548",w:4,h:4,cat:"furniture"},
+  {id:"lounge-chair",label:"Lounge Chair",icon:"🛋️",color:"#8D6E63",w:2,h:3,cat:"furniture"},
+  {id:"garden-bench",label:"Garden Bench",icon:"🪑",color:"#5D4037",w:4,h:1,cat:"furniture"},
+  {id:"umbrella",label:"Patio Umbrella",icon:"⛱️",color:"#E65100",w:3,h:3,cat:"furniture"},
+  {id:"hammock",label:"Hammock",icon:"🏖️",color:"#FF8F00",w:4,h:2,cat:"furniture"},
+  {id:"swing-set",label:"Swing Set",icon:"🎠",color:"#F44336",w:4,h:2,cat:"furniture"},
+  {id:"adirondack",label:"Adirondack Chair",icon:"🪑",color:"#42A5F5",w:2,h:2,cat:"furniture"},
+  {id:"picnic-table",label:"Picnic Table",icon:"🪵",color:"#4E342E",w:4,h:3,cat:"furniture"},
+  {id:"daybed",label:"Outdoor Daybed",icon:"🛏️",color:"#BDBDBD",w:3,h:4,cat:"furniture"},
+  {id:"sectional",label:"Sectional Sofa",icon:"🛋️",color:"#757575",w:5,h:4,cat:"furniture"},
+  {id:"side-table",label:"Side Table",icon:"🔲",color:"#A1887F",w:1,h:1,cat:"furniture"},
+  // Hardscape
+  {id:"patio",label:"Patio",icon:"",color:"#9E9E9E",w:10,h:8,cat:"hardscape"},
+  {id:"deck",label:"Deck",icon:"",color:"#8D6E63",w:12,h:8,cat:"hardscape"},
+  {id:"walkway",label:"Walkway",icon:"",color:"#BCAAA4",w:2,h:8,cat:"hardscape"},
+  {id:"stepping-stones",label:"Stepping Stones",icon:"",color:"#B0BEC5",w:1,h:6,cat:"hardscape"},
+  {id:"retaining-wall",label:"Retaining Wall",icon:"",color:"#8D6E63",w:10,h:1,cat:"hardscape"},
+  {id:"fire-pit",label:"Fire Pit",icon:"",color:"#BF360C",w:3,h:3,cat:"hardscape"},
+  {id:"outdoor-kitchen",label:"Outdoor Kitchen",icon:"",color:"#616161",w:6,h:3,cat:"hardscape"},
+  // Structures
+  {id:"shed",label:"Shed",icon:"🏠",color:"#795548",w:6,h:4,cat:"structures"},
+  {id:"greenhouse",label:"Greenhouse",icon:"🏡",color:"#A5D6A7",w:8,h:6,cat:"structures"},
+  {id:"pergola",label:"Pergola",icon:"🏛️",color:"#A1887F",w:8,h:6,cat:"structures"},
+  {id:"gazebo",label:"Gazebo",icon:"⛺",color:"#BCAAA4",w:5,h:5,cat:"structures"},
+  {id:"arbor",label:"Arbor/Arch",icon:"🚪",color:"#6D4C41",w:2,h:1,cat:"structures"},
+  {id:"playhouse",label:"Playhouse",icon:"🏠",color:"#EF5350",w:4,h:4,cat:"structures"},
+  {id:"treehouse",label:"Treehouse",icon:"🌳",color:"#4E342E",w:3,h:3,cat:"structures"},
+  {id:"doghouse",label:"Dog House",icon:"🐕",color:"#8D6E63",w:2,h:2,cat:"structures"},
+  {id:"chicken-coop",label:"Chicken Coop",icon:"🐔",color:"#D7CCC8",w:4,h:3,cat:"structures"},
+  // Cooking & Entertaining
+  {id:"grill",label:"Grill / BBQ",icon:"🔥",color:"#424242",w:2,h:2,cat:"entertain"},
+  {id:"smoker",label:"Smoker",icon:"🔥",color:"#37474F",w:2,h:2,cat:"entertain"},
+  {id:"pizza-oven",label:"Pizza Oven",icon:"🍕",color:"#6D4C41",w:3,h:2,cat:"entertain"},
+  {id:"bar-cart",label:"Bar Cart",icon:"🍹",color:"#5D4037",w:2,h:1,cat:"entertain"},
+  {id:"hot-tub",label:"Hot Tub",icon:"🛁",color:"#0288D1",w:3,h:3,cat:"entertain"},
+  {id:"pool",label:"Swimming Pool",icon:"🏊",color:"#29B6F6",w:8,h:5,cat:"entertain"},
+  {id:"trampoline",label:"Trampoline",icon:"⭕",color:"#263238",w:4,h:4,cat:"entertain"},
+  {id:"sandbox",label:"Sandbox",icon:"🏖️",color:"#FFD54F",w:3,h:3,cat:"entertain"},
+  {id:"cornhole",label:"Cornhole Set",icon:"🎯",color:"#5D4037",w:2,h:4,cat:"entertain"},
+  {id:"fireplace",label:"Outdoor Fireplace",icon:"🔥",color:"#795548",w:3,h:2,cat:"entertain"},
+  // Water
+  {id:"fountain",label:"Fountain",icon:"⛲",color:"#81D4FA",w:2,h:2,cat:"water"},
+  {id:"pond",label:"Pond",icon:"💧",color:"#4FC3F7",w:4,h:4,cat:"water"},
+  {id:"birdbath",label:"Birdbath",icon:"🐦",color:"#90A4AE",w:1,h:1,cat:"water"},
+  {id:"waterfall",label:"Waterfall",icon:"💦",color:"#4DD0E1",w:3,h:2,cat:"water"},
+  {id:"rain-garden",label:"Rain Garden",icon:"🌧️",color:"#66BB6A",w:4,h:3,cat:"water"},
+  {id:"irrigation",label:"Irrigation Line",icon:"💧",color:"#0277BD",w:10,h:1,cat:"water"},
+  // Decor & Other
+  {id:"compost",label:"Compost Bin",icon:"♻️",color:"#5D4037",w:2,h:2,cat:"other"},
+  {id:"water-barrel",label:"Rain Barrel",icon:"🛢️",color:"#1565C0",w:1,h:1,cat:"other"},
+  {id:"bird-feeder",label:"Bird Feeder",icon:"🐦",color:"#FF8F00",w:1,h:1,cat:"other"},
+  {id:"bird-house",label:"Birdhouse",icon:"🏠",color:"#FFCC80",w:1,h:1,cat:"other"},
+  {id:"garden-statue",label:"Garden Statue",icon:"🗿",color:"#9E9E9E",w:1,h:1,cat:"other"},
+  {id:"solar-light",label:"Solar Light",icon:"💡",color:"#FFF176",w:1,h:1,cat:"other"},
+  {id:"string-lights",label:"String Lights",icon:"✨",color:"#FFECB3",w:6,h:1,cat:"other"},
+  {id:"lawn",label:"Lawn Area",icon:"🟩",color:"#8BC34A",w:10,h:10,cat:"other"},
+  {id:"fence-h",label:"Fence (H)",icon:"🔲",color:"#A1887F",w:10,h:1,cat:"other"},
+  {id:"fence-v",label:"Fence (V)",icon:"🔲",color:"#A1887F",w:1,h:10,cat:"other"},
+  {id:"gate",label:"Gate",icon:"🚪",color:"#795548",w:2,h:1,cat:"other"},
+  {id:"planter-pot",label:"Planter Pot",icon:"🪴",color:"#A1887F",w:1,h:1,cat:"other"},
+  {id:"flag-pole",label:"Flag Pole",icon:"🏁",color:"#BDBDBD",w:1,h:1,cat:"other"},
+  {id:"mailbox",label:"Mailbox",icon:"📫",color:"#1565C0",w:1,h:1,cat:"other"},
+  {id:"rock-boulder",label:"Boulder",icon:"🪨",color:"#757575",w:2,h:2,cat:"other"},
+  {id:"wood-pile",label:"Wood Pile",icon:"🪵",color:"#5D4037",w:3,h:2,cat:"other"},
+  {id:"trash-cans",label:"Trash Cans",icon:"🗑️",color:"#455A64",w:2,h:1,cat:"other"},
+  ...FLOWER_TYPES,
+];
+
+const DRAW_TYPES=[
+  {id:"d-bed",label:"Raised Bed",icon:"🌱",color:"#6B4226",cat:"beds"},
+  {id:"d-plot",label:"Garden Plot",icon:"🥕",color:"#5D8233",cat:"beds"},
+  {id:"d-herb",label:"Herb Garden",icon:"🌿",color:"#7BA05B",cat:"beds"},
+  {id:"d-flower",label:"Flower Bed",icon:"🌸",color:"#C9677E",cat:"beds"},
+  {id:"d-path",label:"Path",icon:"",color:"#B8956A",cat:"hardscape"},
+  {id:"d-patio",label:"Patio",icon:"",color:"#9E9E9E",cat:"hardscape"},
+  {id:"d-gravel",label:"Gravel",icon:"",color:"#BDBDBD",cat:"hardscape"},
+  {id:"d-pond",label:"Pond",icon:"💧",color:"#4FC3F7",cat:"water"},
+  {id:"d-lawn",label:"Lawn",icon:"🟩",color:"#8BC34A",cat:"other"},
+  {id:"d-mulch",label:"Mulch",icon:"🟫",color:"#795548",cat:"other"},
+];
+
+const CATS=[
+  {id:"beds",label:"Beds",icon:"🌱"},{id:"flowers",label:"Flowers",icon:"🌺"},{id:"plants",label:"Trees",icon:"🌳"},
+  {id:"furniture",label:"Furniture",icon:"🪑"},{id:"entertain",label:"Fun & Cook",icon:"🔥"},
+  {id:"hardscape",label:"Hardscape",icon:"🟫"},{id:"structures",label:"Structures",icon:"🏠"},
+  {id:"water",label:"Water",icon:"💧"},{id:"other",label:"Decor",icon:"✨"},
+];
+// Layer ordering: ground surfaces < structures/plants < furniture/decor
+const LAYER={beds:1,hardscape:1,other:2,water:2,plants:3,structures:3,entertain:4,furniture:4,flowers:5};
+const ROUND_IDS=new Set(["tree-large","tree-small","shrub","fountain","compost","water-barrel","pond","herb-garden","fruit-tree","berry-bush","ornamental-grass","fire-pit","hot-tub","trampoline","sandbox","birdbath","umbrella","bird-feeder","bird-house","garden-statue","solar-light","planter-pot","flag-pole","rock-boulder"]);
+
+let config=null,elements=[],freeforms=[];
+let selectedId=null,selectedType=null,activeCat="beds",showLabels=true,nextUid=1;
+let mode="place",dragging=null,dragOff={x:0,y:0},resizing=null;
+let drawBrush=null,brushSize=1,eraseSize=1,isDrawing=false,drawCells=new Set();
+let isDraggingFF=false,ffDragStart=null;
+let editingFFUid=null,editShapeMode="add",editShapeBrushSize=1;
+let nextGroupId=1;
+// Multi-select: Set of uid values for shift-click grouping
+let multiSel=new Set();
+
+// Undo/Redo
+let undoStack=[],redoStack=[];
+const MAX_UNDO=80;
+
+function snapshot(){
+  undoStack.push({
+    elements:elements.map(e=>({...e})),
+    freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,cells:new Set(ff.cells)})),
+    nextUid,nextGroupId
+  });
+  if(undoStack.length>MAX_UNDO) undoStack.shift();
+  redoStack=[];
+  updateUndoButtons();
+}
+function undo(){
+  if(!undoStack.length)return;
+  redoStack.push({
+    elements:elements.map(e=>({...e})),
+    freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,cells:new Set(ff.cells)})),
+    nextUid,nextGroupId
+  });
+  const s=undoStack.pop();
+  elements=s.elements;freeforms=s.freeforms;nextUid=s.nextUid;nextGroupId=s.nextGroupId||nextGroupId;
+  selectedId=null;selectedType=null;multiSel.clear();
+  renderAll();updateSelPanel();updateInfo();updateUndoButtons();
+}
+function redo(){
+  if(!redoStack.length)return;
+  undoStack.push({
+    elements:elements.map(e=>({...e})),
+    freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,cells:new Set(ff.cells)})),
+    nextUid,nextGroupId
+  });
+  const s=redoStack.pop();
+  elements=s.elements;freeforms=s.freeforms;nextUid=s.nextUid;nextGroupId=s.nextGroupId||nextGroupId;
+  selectedId=null;selectedType=null;multiSel.clear();
+  renderAll();updateSelPanel();updateInfo();updateUndoButtons();
+}
+function updateUndoButtons(){
+  const ub=document.getElementById("undo-btn"),rb=document.getElementById("redo-btn");
+  if(ub){ub.disabled=!undoStack.length;ub.style.opacity=undoStack.length?"1":"0.4"}
+  if(rb){rb.disabled=!redoStack.length;rb.style.opacity=redoStack.length?"1":"0.4"}
+}
+
+function snap(v){return Math.round(v/GS)*GS}
+function ck(a,b){return a+","+b}
+function pk(k){const p=k.split(",");return[+p[0],+p[1]]}
+
+// Find object by uid in either array
+function findObj(uid){return elements.find(e=>e.uid===uid)||freeforms.find(f=>f.uid===uid)}
+function findObjKind(uid){return elements.find(e=>e.uid===uid)?"prefab":"freeform"}
+// Get all UIDs in same group as uid
+function getGroupUids(uid){
+  const obj=findObj(uid);if(!obj||!obj.groupId)return new Set([uid]);
+  const gid=obj.groupId,s=new Set();
+  elements.forEach(e=>{if(e.groupId===gid)s.add(e.uid)});
+  freeforms.forEach(f=>{if(f.groupId===gid)s.add(f.uid)});
+  return s;
+}
+// Check if uid is selected (primary or multi or group)
+function isHighlighted(uid){
+  if(multiSel.size>0) return multiSel.has(uid);
+  if(!selectedId) return false;
+  if(uid===selectedId) return true;
+  const obj=findObj(selectedId);
+  if(obj&&obj.groupId){const obj2=findObj(uid);return obj2&&obj2.groupId===obj.groupId}
+  return false;
+}
+
+// ═══ SETUP ═══
+let chosenDir="E";
+const cC=document.getElementById("compass-btns");
+DIRS.forEach(d=>{const b=document.createElement("button");b.className="compass-btn"+(d==="E"?" active":"");b.textContent=d;b.onclick=()=>{chosenDir=d;cC.querySelectorAll("button").forEach(x=>x.className="compass-btn");b.className="compass-btn active"};cC.appendChild(b)});
+document.getElementById("start-btn").onclick=()=>{
+  config={width:Math.max(10,Math.min(200,+document.getElementById("inp-width").value||50)),height:Math.max(10,Math.min(200,+document.getElementById("inp-height").value||38)),northDir:chosenDir};
+  document.getElementById("setup-screen").style.display="none";
+  document.getElementById("planner-screen").classList.add("visible");
+  initPlanner();
+};
+
+function calcGS(){
+  const area=document.querySelector(".canvas-area");
+  if(!area||!config) return;
+  // Available space: area minus padding (24px each side), topbar (~50px), house bar (32px), hint (~28px)
+  const availW=area.clientWidth-48;
+  const availH=area.clientHeight-50-32-28-48;
+  const gsW=Math.floor(availW/config.width);
+  const gsH=Math.floor(availH/config.height);
+  GS=Math.max(4,Math.min(gsW,gsH)); // at least 4px per ft
+}
+
+function initPlanner(){
+  calcGS();
+  buildGrid();
+  document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";
+  renderCatTabs();renderList();
+  const cv=document.getElementById("canvas");
+  cv.addEventListener("mousedown",onDown);cv.addEventListener("mousemove",onMove);cv.addEventListener("mouseup",onUp);cv.addEventListener("mouseleave",onUp);
+  cv.addEventListener("touchstart",e=>{e.preventDefault();onDown({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY,target:e.target,stopPropagation(){}})},{passive:false});
+  cv.addEventListener("touchmove",e=>{e.preventDefault();onMove({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY})},{passive:false});
+  cv.addEventListener("touchend",onUp);
+  document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();deleteSelected()}if(e.key==="Escape"){if(editingFFUid){finishEditShape()}else{setMode("place");multiSel.clear();renderAll();updateSelPanel()}}if((e.ctrlKey||e.metaKey)&&e.key==="d"){e.preventDefault();duplicateSelected()}if((e.ctrlKey||e.metaKey)&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo()}if((e.ctrlKey||e.metaKey)&&(e.key==="y"||(e.key==="z"&&e.shiftKey))){e.preventDefault();redo()}if((e.ctrlKey||e.metaKey)&&e.key==="g"&&!e.shiftKey){e.preventDefault();groupSelected()}if((e.ctrlKey||e.metaKey)&&e.key==="g"&&e.shiftKey){e.preventDefault();ungroupSelected()}if(e.key==="["){e.preventDefault();layerMove(-1)}if(e.key==="]"){e.preventDefault();layerMove(1)}if(selectedId&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){e.preventDefault();const s=e.shiftKey?5:1;if(e.key==="ArrowUp")nudgeSel(0,-s);if(e.key==="ArrowDown")nudgeSel(0,s);if(e.key==="ArrowLeft")nudgeSel(-s,0);if(e.key==="ArrowRight")nudgeSel(s,0)}});
+  document.getElementById("chk-labels").onchange=e=>{showLabels=e.target.checked;renderAll()};
+  window.addEventListener("resize",()=>{if(!config)return;recalcGS();buildGrid();renderAll()});
+  updateInfo();
+}
+
+function buildGrid(){
+  const cW=config.width*GS,cH=config.height*GS,cv=document.getElementById("canvas");
+  cv.querySelectorAll(".grid-marker,.scale-label").forEach(e=>e.remove());
+  cv.style.width=cW+"px";cv.style.height=cH+"px";cv.style.backgroundSize=GS+"px "+GS+"px";
+  document.getElementById("house-bar").style.width=cW+"px";
+  document.getElementById("info-dims").textContent=config.width+" × "+config.height+" ft";
+  for(let i=1;i<=Math.floor(config.width/5);i++){const m=document.createElement("div");m.className="grid-marker";m.style.cssText=`left:${i*5*GS-1}px;top:0;width:1px;height:100%`;cv.appendChild(m)}
+  for(let i=1;i<=Math.floor(config.height/5);i++){const m=document.createElement("div");m.className="grid-marker";m.style.cssText=`top:${i*5*GS-1}px;left:0;height:1px;width:100%`;cv.appendChild(m)}
+  for(let i=0;i<=Math.floor(config.width/5);i++){const l=document.createElement("div");l.className="scale-label";l.style.cssText=`left:${i*5*GS}px;bottom:2px`;l.textContent=i*5+"'";cv.appendChild(l)}
+  for(let i=0;i<=Math.floor(config.height/5);i++){const l=document.createElement("div");l.className="scale-label";l.style.cssText=`top:${i*5*GS}px;left:2px`;l.textContent=i*5+"'";cv.appendChild(l)}
+}
+
+function setMode(m){
+  if(editingFFUid&&m!=="editshape"){finishEditShape();if(m==="place")return;}
+  if(m!=="draw"&&drawCells.size>0)commitDrawing();
+  mode=m;
+  document.getElementById("mode-place").className="mode-btn"+(m==="place"?" active":"");
+  document.getElementById("mode-draw").className="mode-btn"+(m==="draw"?" active":"");
+  document.getElementById("mode-erase").className="mode-btn"+(m==="erase"?" active":"");
+  document.getElementById("draw-panel").style.display=m==="draw"?"block":"none";
+  document.getElementById("erase-panel").style.display=m==="erase"?"block":"none";
+  document.getElementById("canvas").className=m==="draw"?"draw-mode":m==="erase"?"erase-mode":"";
+  if(m==="draw"){if(!drawBrush)drawBrush=DRAW_TYPES[0];document.getElementById("dp-brush-name").textContent=drawBrush.label;document.getElementById("draw-color").value=drawBrush._color||drawBrush.color}
+  selectedId=null;selectedType=null;
+  renderCatTabs();renderList();renderAll();updateSelPanel();
+}
+
+// ═══ SIDEBAR ═══
+function renderCatTabs(){
+  const c=document.getElementById("cat-tabs");c.innerHTML="";
+  CATS.forEach(cat=>{const b=document.createElement("button");b.className="cat-tab"+(cat.id===activeCat?" active":"");b.textContent=cat.icon+" "+cat.label;b.onclick=()=>{activeCat=cat.id;renderCatTabs();renderList()};c.appendChild(b)});
+}
+
+function renderList(){
+  const c=document.getElementById("element-list");c.innerHTML="";
+  const sb=document.getElementById("search-bar");
+  const ec=document.getElementById("el-count");
+  const isFlowers = activeCat==="flowers";
+  sb.style.display=(isFlowers && mode==="place")?"block":"none";
+  ec.style.display="none";
+
+  if(mode==="draw"){
+    DRAW_TYPES.filter(t=>t.cat===activeCat).forEach(t=>{
+      const b=document.createElement("button");b.className="element-btn"+(drawBrush?.id===t.id?" active-draw":"");
+      b.innerHTML=`<span class="icon">${t.icon}</span><div><div class="name">${t.label}</div><div class="dims">Freeform</div></div><div class="swatch" style="background:${t._color||t.color}"></div>`;
+      b.onclick=()=>{drawBrush=t;document.getElementById("dp-brush-name").textContent=t.label;document.getElementById("draw-color").value=t._color||t.color;renderList()};
+      c.appendChild(b);
+    });
+    return;
+  }
+  if(mode==="erase") return;
+
+  let types = PREFAB_TYPES.filter(t=>t.cat===activeCat);
+
+  // Search filter for flowers
+  if(isFlowers){
+    const q=(document.getElementById("search-input").value||"").toLowerCase().trim();
+    if(q) types=types.filter(t=>t.label.toLowerCase().includes(q));
+    ec.style.display="block";
+    ec.textContent=types.length+" flower"+(types.length!==1?"s":"")+" shown";
+  }
+
+  types.forEach(t=>{
+    const b=document.createElement("button");b.className="element-btn";
+    b.innerHTML=`<span class="icon">${t.icon}</span><div><div class="name">${t.label}</div><div class="dims">${t.w}×${t.h} ft</div></div><div class="swatch" style="background:${t.color}"></div>`;
+    b.onclick=()=>addPrefab(t);
+    c.appendChild(b);
+  });
+}
+
+// ═══ PREFABS ═══
+function addPrefab(t){
+  snapshot();
+  const cW=config.width*GS,cH=config.height*GS;
+  const el={...t,uid:nextUid++,x:snap(Math.random()*Math.max(0,cW-t.w*GS)),y:snap(Math.random()*Math.max(0,cH-t.h*GS)),zOff:0,groupId:null,rot:0};
+  elements.push(el);selectedId=el.uid;selectedType="prefab";multiSel.clear();
+  renderAll();updateSelPanel();updateInfo();
+}
+
+// ═══ RENDER ═══
+let _rafPending=false, _cvEl=null;
+function getCv(){return _cvEl||(_cvEl=document.getElementById("canvas"))}
+function scheduleRender(){
+  if(_rafPending)return;
+  _rafPending=true;
+  requestAnimationFrame(()=>{_rafPending=false;doRenderAll()});
+}
+function renderAll(immediate){
+  if(immediate){doRenderAll();return}
+  scheduleRender();
+}
+function doRenderAll(){
+  const cv=getCv();
+  cv.querySelectorAll(".placed-el,.ff-group,.draw-preview").forEach(e=>e.remove());
+  renderFF(cv);renderDrawPreview(cv);renderPrefabs(cv);
+}
+function renderPrefabs(cv){
+  if(!cv)cv=getCv();
+  const frag=document.createDocumentFragment();
+  elements.forEach(el=>{
+    const isSel=selectedType==="prefab"&&el.uid===selectedId;
+    const isHL=isHighlighted(el.uid);
+    const d=document.createElement("div");
+    const isRound = ROUND_IDS.has(el.id) || el.cat==="flowers";
+    d.className="placed-el"+(isRound?" round":"")+(isSel?" selected":"")+(isHL&&!isSel?" grouped":"");
+    d.dataset.uid=el.uid;d.dataset.kind="prefab";
+    const z=isSel?50:((LAYER[el.cat]||1)*10+(el.zOff||0));
+    const rot=el.rot||0;
+    d.style.cssText=`left:${el.x}px;top:${el.y}px;width:${el.w*GS}px;height:${el.h*GS}px;background:${el.color};z-index:${z};${rot?`transform:rotate(${rot}deg);transform-origin:center center;`:""}`;
+    const sz=Math.min(el.w,el.h)*GS*0.4;
+    let h=`<span class="el-icon" style="font-size:${Math.max(10,sz)}px">${el.icon}</span>`;
+    if(showLabels&&el.w*GS>20&&el.h*GS>24)h+=`<span class="el-label">${el.label}</span>`;
+    if(isSel){["nw","ne","sw","se","n","s","e","w"].forEach(x=>h+=`<div class="resize-handle ${x}" data-handle="${x}"></div>`);h+=`<div class="rotate-handle" data-handle="rotate">↻</div>`}
+    d.innerHTML=h;frag.appendChild(d);
+  });
+  cv.appendChild(frag);
+}
+function renderFF(cv){
+  if(!cv)cv=getCv();
+  const frag=document.createDocumentFragment();
+  freeforms.forEach(ff=>{
+    const isSel=selectedType==="freeform"&&ff.uid===selectedId;
+    const isHL=isHighlighted(ff.uid);
+    const isEditing=editingFFUid===ff.uid;
+    const g=document.createElement("div");
+    g.className="ff-group"+(mode==="place"||isEditing?" selectable":"");
+    g.dataset.uid=ff.uid;g.dataset.kind="freeform";
+    const z=isEditing?60:isSel?49:((LAYER[ff.cat]||1)*10+(ff.zOff||0));
+    g.style.cssText=`width:${config.width*GS}px;height:${config.height*GS}px;z-index:${z};`;
+    let mnX=1e9,mnY=1e9,mxX=-1,mxY=-1;
+    ff.cells.forEach(k=>{
+      const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy;if(gx>mxX)mxX=gx;if(gy>mxY)mxY=gy;
+      const c=document.createElement("div");c.className="ff-cell"+(isEditing?" editing":"");
+      const hN=ff.cells.has(ck(gx,gy-1)),hS=ff.cells.has(ck(gx,gy+1)),hE=ff.cells.has(ck(gx+1,gy)),hW=ff.cells.has(ck(gx-1,gy));
+      const r1=(!hN&&!hW)?6:0,r2=(!hN&&!hE)?6:0,r3=(!hS&&!hE)?6:0,r4=(!hS&&!hW)?6:0;
+      const bdr=isEditing?"1.5px solid rgba(171,71,188,0.6)":isSel?"1px solid rgba(255,214,0,0.5)":isHL?"1px solid rgba(100,180,255,0.5)":"1px solid rgba(0,0,0,0.08)";
+      c.style.cssText=`left:${gx*GS}px;top:${gy*GS}px;width:${GS}px;height:${GS}px;background:${ff.color};opacity:${isEditing?0.9:0.82};border-radius:${r1}px ${r2}px ${r3}px ${r4}px;border:${bdr};`;
+      g.appendChild(c);
+    });
+    if(showLabels&&ff.cells.size>=3){
+      const cx=((mnX+mxX)/2)*GS+GS/2,cy=((mnY+mxY)/2)*GS+GS/2;
+      const l=document.createElement("div");l.className="fg-label";l.style.cssText=`left:${cx}px;top:${cy}px;transform:translate(-50%,-50%)`;
+      l.textContent=(isEditing?"✏️ ":"")+ff.icon+" "+ff.label;g.appendChild(l);
+    }
+    frag.appendChild(g);
+  });
+  cv.appendChild(frag);
+}
+function renderDrawPreview(cv){
+  if(!drawCells.size)return;if(!cv)cv=getCv();
+  const frag=document.createDocumentFragment();
+  const col=drawBrush?._color||drawBrush?.color||"#888";
+  drawCells.forEach(k=>{
+    const[gx,gy]=pk(k);const c=document.createElement("div");c.className="draw-preview";
+    const hN=drawCells.has(ck(gx,gy-1)),hS=drawCells.has(ck(gx,gy+1)),hE=drawCells.has(ck(gx+1,gy)),hW=drawCells.has(ck(gx-1,gy));
+    const r1=(!hN&&!hW)?6:0,r2=(!hN&&!hE)?6:0,r3=(!hS&&!hE)?6:0,r4=(!hS&&!hW)?6:0;
+    c.style.cssText=`left:${gx*GS}px;top:${gy*GS}px;width:${GS}px;height:${GS}px;background:${col};border-radius:${r1}px ${r2}px ${r3}px ${r4}px;`;
+    frag.appendChild(c);
+  });
+  cv.appendChild(frag);
+}
+
+// ═══ SELECTION ═══
+function updateSelPanel(){
+  const p=document.getElementById("sel-panel");
+  const gi=document.getElementById("sel-group-info");
+  const mi=document.getElementById("sel-multi-info");
+  // Close icon picker when selection changes
+  iconPickerOpen=false;document.getElementById("icon-picker").style.display="none";
+  if(!selectedId||mode!=="place"){p.style.display="none";gi.style.display="none";mi.style.display="none";if(objPanelOpen)renderObjList();return}
+  // Multi-select info
+  if(multiSel.size>1){mi.style.display="block";mi.textContent="⊞ "+multiSel.size+" objects selected — Ctrl+G to group";} else {mi.style.display="none"}
+  if(selectedType==="prefab"){
+    const el=elements.find(e=>e.uid===selectedId);if(!el){p.style.display="none";return}
+    p.style.display="block";
+    document.getElementById("sel-name").value=el.label;
+    document.getElementById("sel-icon").value=el.icon;
+    const layerLbl=(LAYER[el.cat]||1)*10+(el.zOff||0);
+    document.getElementById("sel-info").textContent=`${el.w}×${el.h} ft • ${el.rot||0}° • z:${layerLbl}`;
+    document.getElementById("pos-row").style.display="flex";
+    document.getElementById("sel-x").value=Math.round(el.x/GS);
+    document.getElementById("sel-y").value=Math.round(el.y/GS);
+    document.getElementById("dim-row").style.display="flex";document.getElementById("rotate-btn").style.display="";document.getElementById("rotate-ccw-btn").style.display="";
+    document.getElementById("sel-width").value=el.w;document.getElementById("sel-height").value=el.h;
+    document.getElementById("sel-color").value=el.color;
+    document.getElementById("edit-shape-row").style.display="none";
+    // Group info
+    if(el.groupId){const n=getGroupUids(el.uid).size;gi.style.display="block";gi.innerHTML=`🔗 Group (${n} objects) — <a href="#" onclick="event.preventDefault();ungroupSelected()" style="color:#1565C0">Ungroup</a>`;}else{gi.style.display="none"}
+    document.getElementById("group-btn").textContent=el.groupId?"🔓":"🔗";
+  } else {
+    const ff=freeforms.find(f=>f.uid===selectedId);if(!ff){p.style.display="none";return}
+    p.style.display="block";
+    document.getElementById("sel-name").value=ff.label;
+    document.getElementById("sel-icon").value=ff.icon;
+    const layerLbl=(LAYER[ff.cat]||1)*10+(ff.zOff||0);
+    let mnX=1e9,mnY=1e9;
+    ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy});
+    document.getElementById("sel-info").textContent=`${ff.cells.size} sq ft freeform • z:${layerLbl}`;
+    document.getElementById("pos-row").style.display="flex";
+    document.getElementById("sel-x").value=mnX;
+    document.getElementById("sel-y").value=mnY;
+    document.getElementById("dim-row").style.display="none";document.getElementById("rotate-btn").style.display="none";document.getElementById("rotate-ccw-btn").style.display="none";
+    document.getElementById("sel-color").value=ff.color;
+    document.getElementById("edit-shape-row").style.display="flex";
+    if(ff.groupId){const n=getGroupUids(ff.uid).size;gi.style.display="block";gi.innerHTML=`🔗 Group (${n} objects) — <a href="#" onclick="event.preventDefault();ungroupSelected()" style="color:#1565C0">Ungroup</a>`;}else{gi.style.display="none"}
+    document.getElementById("group-btn").textContent=ff.groupId?"🔓":"🔗";
+  }
+  if(objPanelOpen&&!_isDragActive)renderObjList();
+}
+function changeSelectedName(v){
+  if(!v.trim())return;
+  const obj=selectedType==="prefab"?elements.find(e=>e.uid===selectedId):freeforms.find(f=>f.uid===selectedId);
+  if(!obj)return;snapshot();obj.label=v.trim();renderAll();if(objPanelOpen)renderObjList();
+}
+// ═══ ICON PICKER ═══
+const ICON_LIB=[
+  // Flowers & Plants
+  {e:"🌹",t:"rose flower"},{e:"🌷",t:"tulip flower"},{e:"🌻",t:"sunflower flower"},{e:"🌼",t:"daisy flower blossom"},{e:"🌸",t:"cherry blossom flower"},{e:"🌺",t:"hibiscus flower"},{e:"🪷",t:"lotus lily flower"},{e:"🪻",t:"hyacinth lavender flower"},{e:"💐",t:"bouquet flowers"},{e:"🌿",t:"herb leaf green"},{e:"🍀",t:"clover lucky four leaf"},{e:"☘️",t:"shamrock clover"},{e:"🌱",t:"seedling sprout plant"},{e:"🪴",t:"potted plant houseplant"},{e:"🌾",t:"rice wheat grain grass"},{e:"🌵",t:"cactus succulent desert"},{e:"🍁",t:"maple leaf autumn fall"},{e:"🍂",t:"fallen leaf autumn"},{e:"🍃",t:"leaf wind green"},{e:"🪹",t:"nest bird"},{e:"🪺",t:"nest eggs bird"},
+  // Trees & Shrubs
+  {e:"🌳",t:"tree deciduous oak"},{e:"🌲",t:"evergreen pine tree"},{e:"🌴",t:"palm tree tropical"},{e:"🎄",t:"christmas tree pine"},{e:"🎋",t:"tanabata bamboo tree"},{e:"🎍",t:"bamboo decoration pine"},{e:"🪵",t:"wood log timber"},{e:"🪨",t:"rock stone boulder"},
+  // Fruits & Berries
+  {e:"🍎",t:"apple red fruit"},{e:"🍏",t:"apple green fruit"},{e:"🍐",t:"pear fruit"},{e:"🍊",t:"orange tangerine citrus fruit"},{e:"🍋",t:"lemon citrus fruit"},{e:"🍌",t:"banana fruit"},{e:"🍉",t:"watermelon fruit"},{e:"🍇",t:"grapes vine fruit"},{e:"🍓",t:"strawberry berry fruit"},{e:"🫐",t:"blueberry berry fruit"},{e:"🍒",t:"cherries cherry fruit"},{e:"🍑",t:"peach fruit"},{e:"🥭",t:"mango fruit"},{e:"🍍",t:"pineapple fruit"},{e:"🥥",t:"coconut palm fruit"},{e:"🥝",t:"kiwi fruit"},{e:"🫒",t:"olive fruit"},{e:"🍈",t:"melon fruit"},
+  // Vegetables & Herbs
+  {e:"🥕",t:"carrot vegetable root"},{e:"🥬",t:"leafy green lettuce vegetable"},{e:"🥒",t:"cucumber vegetable"},{e:"🌶️",t:"hot pepper chili"},{e:"🫑",t:"bell pepper vegetable"},{e:"🌽",t:"corn maize vegetable"},{e:"🥦",t:"broccoli vegetable"},{e:"🧄",t:"garlic bulb"},{e:"🧅",t:"onion bulb"},{e:"🥔",t:"potato vegetable"},{e:"🍆",t:"eggplant aubergine"},{e:"🍅",t:"tomato vegetable"},{e:"🫘",t:"beans legume"},{e:"🥜",t:"peanut nut"},{e:"🫛",t:"pea pod"},{e:"🥗",t:"salad green bowl"},{e:"🧑‍🌾",t:"farmer gardener"},
+  // Garden & Nature
+  {e:"🦋",t:"butterfly insect garden"},{e:"🐝",t:"bee honeybee pollinator"},{e:"🐛",t:"bug caterpillar insect"},{e:"🐞",t:"ladybug beetle insect"},{e:"🪲",t:"beetle insect"},{e:"🐌",t:"snail garden"},{e:"🪱",t:"worm earthworm soil"},{e:"🐜",t:"ant insect"},{e:"🦗",t:"cricket grasshopper insect"},{e:"🕷️",t:"spider web"},{e:"🐦",t:"bird songbird"},{e:"🐦‍⬛",t:"black bird crow"},{e:"🦜",t:"parrot bird tropical"},{e:"🐓",t:"rooster chicken"},{e:"🐔",t:"chicken hen"},{e:"🐇",t:"rabbit bunny"},{e:"🦔",t:"hedgehog"},{e:"🐿️",t:"squirrel chipmunk"},{e:"🐕",t:"dog pet"},{e:"🐈",t:"cat pet"},{e:"🦎",t:"lizard reptile"},{e:"🐸",t:"frog toad"},{e:"🐢",t:"turtle tortoise"},{e:"🐟",t:"fish pond"},{e:"🦆",t:"duck bird pond"},
+  // Weather & Sky
+  {e:"☀️",t:"sun sunny"},{e:"🌤️",t:"sun cloud"},{e:"⛅",t:"cloud sun"},{e:"🌧️",t:"rain cloud"},{e:"🌈",t:"rainbow"},{e:"❄️",t:"snowflake winter"},{e:"💧",t:"water drop droplet"},{e:"💦",t:"splash water sweat"},{e:"🌊",t:"wave water ocean"},{e:"☁️",t:"cloud"},
+  // Tools & Garden Equipment
+  {e:"🔧",t:"wrench tool"},{e:"🪓",t:"axe hatchet tool"},{e:"⛏️",t:"pick mining tool"},{e:"🔨",t:"hammer tool"},{e:"🪣",t:"bucket pail"},{e:"🧹",t:"broom sweep"},{e:"🪜",t:"ladder step"},{e:"⚙️",t:"gear settings"},{e:"🛠️",t:"tools wrench"},{e:"🧰",t:"toolbox"},{e:"🪤",t:"trap mouse"},{e:"🏷️",t:"tag label"},{e:"📌",t:"pin pushpin"},
+  // Structures & Objects
+  {e:"🏠",t:"house home"},{e:"🏡",t:"house garden"},{e:"⛺",t:"tent camping"},{e:"🏛️",t:"classical building columns"},{e:"🚪",t:"door gate"},{e:"🪑",t:"chair seat"},{e:"🛋️",t:"couch sofa"},{e:"🛏️",t:"bed"},{e:"🍽️",t:"plate fork knife dining"},{e:"🏖️",t:"beach umbrella"},{e:"⛱️",t:"umbrella parasol shade"},{e:"🎪",t:"tent circus"},{e:"⛲",t:"fountain water"},{e:"🏊",t:"pool swim"},{e:"🛁",t:"bath tub hot tub"},{e:"🔥",t:"fire flame grill"},{e:"💡",t:"light bulb idea"},{e:"🪔",t:"lamp oil diya"},{e:"🕯️",t:"candle"},{e:"✨",t:"sparkles stars"},{e:"⭐",t:"star"},{e:"🌟",t:"glowing star"},{e:"🎯",t:"target bullseye"},{e:"🎠",t:"carousel horse playground"},{e:"♻️",t:"recycle compost"},{e:"🗿",t:"statue moai"},{e:"🪵",t:"log wood"},{e:"🧱",t:"brick wall"},
+  // Symbols & Markers
+  {e:"🟢",t:"green circle dot"},{e:"🔴",t:"red circle dot"},{e:"🟡",t:"yellow circle dot"},{e:"🟠",t:"orange circle dot"},{e:"🔵",t:"blue circle dot"},{e:"🟣",t:"purple circle dot"},{e:"🟤",t:"brown circle dot"},{e:"⚪",t:"white circle dot"},{e:"⚫",t:"black circle dot"},{e:"🟩",t:"green square"},{e:"🟥",t:"red square"},{e:"🟨",t:"yellow square"},{e:"🟧",t:"orange square"},{e:"🟦",t:"blue square"},{e:"🟪",t:"purple square"},{e:"🟫",t:"brown square"},{e:"⬜",t:"white square"},{e:"⬛",t:"black square"},{e:"❤️",t:"heart red love"},{e:"💚",t:"heart green"},{e:"💙",t:"heart blue"},{e:"💜",t:"heart purple"},{e:"🧡",t:"heart orange"},{e:"💛",t:"heart yellow"},{e:"🤍",t:"heart white"},{e:"🏁",t:"flag checkered"},{e:"📫",t:"mailbox"},
+  // Misc garden
+  {e:"🥀",t:"wilted flower dead"},{e:"🪻",t:"lavender hyacinth"},{e:"🪷",t:"lotus waterlily"},{e:"🌰",t:"chestnut nut acorn"},{e:"🥚",t:"egg"},{e:"🫗",t:"water pouring"},{e:"🧊",t:"ice cube"},{e:"🍄",t:"mushroom fungus"},{e:"🐊",t:"crocodile alligator pond"},{e:"🦩",t:"flamingo bird pink"},{e:"🦢",t:"swan bird pond"},{e:"🪶",t:"feather bird"},{e:"🐝",t:"bee honeybee"},{e:"🍯",t:"honey pot bee"},
+];
+let iconPickerOpen=false;
+function toggleIconPicker(){
+  iconPickerOpen=!iconPickerOpen;
+  document.getElementById("icon-picker").style.display=iconPickerOpen?"block":"none";
+  if(iconPickerOpen){document.getElementById("icon-search").value="";filterIcons();document.getElementById("icon-search").focus()}
+}
+function filterIcons(){
+  const q=(document.getElementById("icon-search").value||"").toLowerCase().trim();
+  const grid=document.getElementById("icon-grid");grid.innerHTML="";
+  const filtered=q?ICON_LIB.filter(i=>i.t.includes(q)):ICON_LIB;
+  filtered.forEach(i=>{
+    const b=document.createElement("button");
+    b.style.cssText="width:28px;height:28px;border:1px solid #e8ede8;border-radius:4px;background:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0";
+    b.textContent=i.e;b.title=i.t;
+    b.onmouseover=()=>b.style.background="#eef5e5";
+    b.onmouseout=()=>b.style.background="#fff";
+    b.onclick=(e)=>{e.stopPropagation();changeSelectedIcon(i.e);document.getElementById("sel-icon").value=i.e;iconPickerOpen=false;document.getElementById("icon-picker").style.display="none"};
+    grid.appendChild(b);
+  });
+  // Also add a "clear" button
+  const cb=document.createElement("button");
+  cb.style.cssText="width:28px;height:28px;border:1px solid #e8ede8;border-radius:4px;background:#fff;font-size:10px;cursor:pointer;color:#c62828;display:flex;align-items:center;justify-content:center;padding:0";
+  cb.textContent="✕";cb.title="Remove icon";
+  cb.onclick=(e)=>{e.stopPropagation();changeSelectedIcon("");document.getElementById("sel-icon").value="";iconPickerOpen=false;document.getElementById("icon-picker").style.display="none"};
+  grid.prepend(cb);
+}
+
+function changeSelectedIcon(v){
+  const obj=selectedType==="prefab"?elements.find(e=>e.uid===selectedId):freeforms.find(f=>f.uid===selectedId);
+  if(!obj)return;snapshot();obj.icon=v;renderAll();if(objPanelOpen)renderObjList();
+}
+function changeSelectedColor(c){
+  snapshot();
+  if(selectedType==="prefab"){const el=elements.find(e=>e.uid===selectedId);if(el)el.color=c;}
+  else{const ff=freeforms.find(f=>f.uid===selectedId);if(ff)ff.color=c;}
+  renderAll();
+}
+function setSelDim(a,v){
+  if(selectedType!=="prefab")return;const el=elements.find(e=>e.uid===selectedId);if(!el)return;
+  snapshot();
+  const n=Math.max(1,Math.min(200,parseInt(v)||1));if(a==="w")el.w=n;else el.h=n;
+  const cW=config.width*GS,cH=config.height*GS;
+  el.x=Math.max(0,Math.min(cW-el.w*GS,el.x));el.y=Math.max(0,Math.min(cH-el.h*GS,el.y));
+  renderAll();updateSelPanel();
+}
+function setSelPos(axis,v){
+  if(!selectedId)return;
+  const ft=Math.max(0,parseInt(v)||0);
+  const cW=config.width*GS,cH=config.height*GS;
+  if(selectedType==="prefab"){
+    const el=elements.find(e=>e.uid===selectedId);if(!el)return;
+    snapshot();
+    if(axis==="x") el.x=Math.min(cW-el.w*GS,ft*GS);
+    else el.y=Math.min(cH-el.h*GS,ft*GS);
+  } else {
+    const ff=freeforms.find(f=>f.uid===selectedId);if(!ff)return;
+    let mnX=1e9,mnY=1e9;
+    ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy});
+    const dx=axis==="x"?ft-mnX:0, dy=axis==="y"?ft-mnY:0;
+    if(!dx&&!dy)return;
+    snapshot();
+    const nc=new Set();let ok=true;
+    ff.cells.forEach(k=>{const[gx,gy]=pk(k);const nx=gx+dx,ny=gy+dy;if(nx<0||nx>=config.width||ny<0||ny>=config.height)ok=false;nc.add(ck(nx,ny))});
+    if(ok) ff.cells=nc;
+  }
+  renderAll();updateSelPanel();if(objPanelOpen)renderObjList();
+}
+function nudgeSel(dx,dy){
+  if(!selectedId)return;
+  const cW=config.width*GS,cH=config.height*GS;
+  // Apply to all group members
+  const guids=getGroupUids(selectedId);
+  snapshot();
+  let ok=true;
+  // Check bounds
+  elements.filter(e=>guids.has(e.uid)).forEach(el=>{
+    const nx=el.x+dx*GS,ny=el.y+dy*GS;
+    if(nx<0||nx+el.w*GS>cW||ny<0||ny+el.h*GS>cH) ok=false;
+  });
+  freeforms.filter(f=>guids.has(f.uid)).forEach(ff=>{
+    ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx+dx<0||gx+dx>=config.width||gy+dy<0||gy+dy>=config.height) ok=false});
+  });
+  if(!ok){undoStack.pop();return}
+  elements.filter(e=>guids.has(e.uid)).forEach(el=>{el.x+=dx*GS;el.y+=dy*GS});
+  freeforms.filter(f=>guids.has(f.uid)).forEach(ff=>{
+    const nc=new Set();ff.cells.forEach(k=>{const[gx,gy]=pk(k);nc.add(ck(gx+dx,gy+dy))});ff.cells=nc;
+  });
+  renderAll();updateSelPanel();if(objPanelOpen)renderObjList();
+}
+function rotateSelected(){
+  if(selectedType!=="prefab")return;const el=elements.find(e=>e.uid===selectedId);if(!el)return;
+  snapshot();
+  el.rot=((el.rot||0)+45)%360;
+  renderAll();updateSelPanel();
+}
+function rotateCCW(){
+  if(selectedType!=="prefab")return;const el=elements.find(e=>e.uid===selectedId);if(!el)return;
+  snapshot();
+  el.rot=((el.rot||0)-45+360)%360;
+  renderAll();updateSelPanel();
+}
+function deleteSelected(){
+  if(!selectedId)return;
+  snapshot();
+  if(selectedType==="prefab")elements=elements.filter(e=>e.uid!==selectedId);
+  else freeforms=freeforms.filter(f=>f.uid!==selectedId);
+  selectedId=null;selectedType=null;multiSel.clear();renderAll();updateSelPanel();updateInfo();
+}
+
+// ═══ GROUPING ═══
+function groupSelected(){
+  // Collect UIDs to group: multi-select takes priority, else use current object's group toggle
+  let uids=new Set();
+  if(multiSel.size>1){
+    uids=new Set(multiSel);
+  } else if(selectedId){
+    const obj=findObj(selectedId);
+    if(obj&&obj.groupId){ungroupSelected();return}
+    // Nothing to group with single object and no multi-select
+    return;
+  } else return;
+  if(uids.size<2) return;
+  snapshot();
+  const gid=nextGroupId++;
+  uids.forEach(uid=>{
+    const el=elements.find(e=>e.uid===uid);if(el){el.groupId=gid;return}
+    const ff=freeforms.find(f=>f.uid===uid);if(ff)ff.groupId=gid;
+  });
+  multiSel.clear();
+  renderAll();updateSelPanel();
+}
+
+function ungroupSelected(){
+  if(!selectedId)return;
+  const obj=findObj(selectedId);
+  if(!obj||!obj.groupId)return;
+  snapshot();
+  const gid=obj.groupId;
+  elements.forEach(e=>{if(e.groupId===gid)e.groupId=null});
+  freeforms.forEach(f=>{if(f.groupId===gid)f.groupId=null});
+  renderAll();updateSelPanel();
+}
+
+// ═══ LAYER CONTROL ═══
+function layerMove(delta){
+  if(!selectedId)return;
+  snapshot();
+  // Apply to all group members
+  const guids=getGroupUids(selectedId);
+  guids.forEach(uid=>{
+    const el=elements.find(e=>e.uid===uid);
+    if(el){el.zOff=Math.max(-20,Math.min(20,((el.zOff||0)+(delta>90?20:delta<-90?-20:delta))));return}
+    const ff=freeforms.find(f=>f.uid===uid);
+    if(ff)ff.zOff=Math.max(-20,Math.min(20,((ff.zOff||0)+(delta>90?20:delta<-90?-20:delta))));
+  });
+  renderAll();updateSelPanel();
+}
+function duplicateSelected(){
+  if(!selectedId)return;
+  if(selectedType==="prefab"){
+    const el=elements.find(e=>e.uid===selectedId);if(!el)return;
+    doPrefabDup(el);
+  } else {
+    const ff=freeforms.find(f=>f.uid===selectedId);if(!ff)return;
+    doFFDup(ff);
+  }
+}
+function doPrefabDup(el){
+  snapshot();
+  const cW=config.width*GS,cH=config.height*GS;
+  let nx=el.x+GS, ny=el.y+GS;
+  nx=Math.max(0,Math.min(cW-el.w*GS,nx));ny=Math.max(0,Math.min(cH-el.h*GS,ny));
+  const dup={...el,uid:nextUid++,x:nx,y:ny,groupId:null};
+  elements.push(dup);selectedId=dup.uid;selectedType="prefab";multiSel.clear();
+  renderAll();updateSelPanel();updateInfo();
+}
+function doFFDup(ff){
+  snapshot();
+  const nc=new Set();let ok=true;
+  ff.cells.forEach(k=>{const[gx,gy]=pk(k);const nx=gx+1,ny=gy+1;if(nx>=config.width||ny>=config.height)ok=false;nc.add(ck(nx,ny))});
+  if(!ok){nc.clear();ff.cells.forEach(k=>nc.add(k))}
+  const dup={uid:nextUid++,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:null,zOff:ff.zOff||0,cells:nc};
+  freeforms.push(dup);selectedId=dup.uid;selectedType="freeform";
+  renderAll();updateSelPanel();updateInfo();
+}
+function objDuplicate(uid,kind){
+  if(kind==="prefab"){const el=elements.find(e=>e.uid===uid);if(el)doPrefabDup(el)}
+  else{const ff=freeforms.find(f=>f.uid===uid);if(ff)doFFDup(ff)}
+}
+function clearAll(){snapshot();elements=[];freeforms=[];drawCells.clear();selectedId=null;selectedType=null;renderAll();updateSelPanel();updateInfo()}
+function updateInfo(){document.getElementById("info-count").textContent=(elements.length+freeforms.length)+" elements • 1 sq = 1 ft";if(objPanelOpen)renderObjList()}
+
+// ═══ DRAW ═══
+function paintCells(pos){
+  const gx=Math.floor(pos.x/GS),gy=Math.floor(pos.y/GS),r=brushSize-1;
+  for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){const cx=gx+dx,cy=gy+dy;if(cx>=0&&cx<config.width&&cy>=0&&cy<config.height)drawCells.add(ck(cx,cy))}
+}
+function eraseCells(pos){
+  const gx=Math.floor(pos.x/GS),gy=Math.floor(pos.y/GS),r=eraseSize-1;
+  for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){const key=ck(gx+dx,gy+dy);freeforms.forEach(ff=>ff.cells.delete(key))}
+  freeforms=freeforms.filter(ff=>ff.cells.size>0);
+}
+function commitDrawing(){
+  if(!drawCells.size)return;
+  snapshot();
+  const col=drawBrush._color||drawBrush.color;
+  freeforms.push({uid:nextUid++,id:drawBrush.id,label:drawBrush.label,icon:drawBrush.icon,color:col,cat:drawBrush.cat||"other",groupId:null,zOff:0,cells:new Set(drawCells)});
+  drawCells.clear();selectedId=freeforms[freeforms.length-1].uid;selectedType="freeform";
+  renderAll();updateSelPanel();updateInfo();
+}
+
+// ═══ EDIT SHAPE ═══
+function startEditShape(){
+  if(selectedType!=="freeform"||!selectedId)return;
+  const ff=freeforms.find(f=>f.uid===selectedId);if(!ff)return;
+  editingFFUid=ff.uid;
+  editShapeMode="add";editShapeBrushSize=1;
+  snapshot(); // save state before editing begins
+  mode="editshape";
+  // Update UI
+  document.getElementById("mode-place").className="mode-btn";
+  document.getElementById("mode-draw").className="mode-btn";
+  document.getElementById("mode-erase").className="mode-btn";
+  document.getElementById("draw-panel").style.display="none";
+  document.getElementById("erase-panel").style.display="none";
+  document.getElementById("sel-panel").style.display="none";
+  document.getElementById("edit-shape-panel").style.display="block";
+  document.getElementById("esp-name").textContent=(ff.icon?ff.icon+" ":"")+ff.label;
+  document.getElementById("canvas").className="draw-mode";
+  document.getElementById("es-mode-add").className="mode-btn active";
+  document.getElementById("es-mode-erase").className="mode-btn";
+  document.getElementById("esp-info").textContent="Draw to add cells to this shape";
+  document.getElementById("es-brush-size").value=1;
+  document.getElementById("esb-val").textContent="1ft";
+  renderAll();
+}
+function setEditShapeMode(m){
+  editShapeMode=m;
+  document.getElementById("es-mode-add").className="mode-btn"+(m==="add"?" active":"");
+  document.getElementById("es-mode-erase").className="mode-btn"+(m==="erase"?" active":"");
+  document.getElementById("esp-info").textContent=m==="add"?"Draw to add cells to this shape":"Draw to remove cells from this shape";
+  document.getElementById("canvas").className=m==="add"?"draw-mode":"erase-mode";
+}
+function finishEditShape(){
+  const uid=editingFFUid;
+  editingFFUid=null;
+  mode="place";
+  document.getElementById("edit-shape-panel").style.display="none";
+  document.getElementById("canvas").className="";
+  document.getElementById("mode-place").className="mode-btn active";
+  // Re-select the edited shape
+  if(uid){
+    const ff=freeforms.find(f=>f.uid===uid);
+    if(ff){selectedId=ff.uid;selectedType="freeform"}
+    else{selectedId=null;selectedType=null}
+  }
+  // Clean up empty freeforms
+  freeforms=freeforms.filter(ff=>ff.cells.size>0);
+  if(selectedId&&!freeforms.find(f=>f.uid===selectedId)){selectedId=null;selectedType=null}
+  renderAll();updateSelPanel();updateInfo();
+}
+function editShapePaint(pos){
+  const ff=freeforms.find(f=>f.uid===editingFFUid);if(!ff)return;
+  const gx=Math.floor(pos.x/GS),gy=Math.floor(pos.y/GS),r=editShapeBrushSize-1;
+  for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){
+    const cx=gx+dx,cy=gy+dy;
+    if(cx>=0&&cx<config.width&&cy>=0&&cy<config.height) ff.cells.add(ck(cx,cy));
+  }
+}
+function editShapeErase(pos){
+  const ff=freeforms.find(f=>f.uid===editingFFUid);if(!ff)return;
+  const gx=Math.floor(pos.x/GS),gy=Math.floor(pos.y/GS),r=editShapeBrushSize-1;
+  for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){
+    ff.cells.delete(ck(gx+dx,gy+dy));
+  }
+}
+
+// ═══ CANVAS ═══
+function gcp(e){const r=getCv().getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+let _snapped=false,_isDragActive=false;
+function onDown(e){
+  const pos=gcp(e),ha=e.target.dataset?.handle;
+  const shift=e.shiftKey;
+  _snapped=false;
+  if(mode==="editshape"){_isDragActive=true;isDrawing=true;if(editShapeMode==="add")editShapePaint(pos);else editShapeErase(pos);renderAll();return}
+  if(mode==="draw"){_isDragActive=true;isDrawing=true;paintCells(pos);renderAll();return}
+  if(mode==="erase"){_isDragActive=true;snapshot();_snapped=true;isDrawing=true;eraseCells(pos);renderAll();updateInfo();return}
+  if(ha==="rotate"){e.stopPropagation();rotateSelected();return}
+  if(ha&&ha!=="rotate"&&selectedType==="prefab"){
+    const el=elements.find(x=>x.uid===selectedId);if(!el)return;
+    snapshot();_snapped=true;_isDragActive=true;
+    resizing={uid:el.uid,handle:ha,sx:pos.x,sy:pos.y,ox:el.x,oy:el.y,ow:el.w,oh:el.h};return;
+  }
+  // Hit-test: collect all hits, pick highest z-index
+  const gx=Math.floor(pos.x/GS),gy=Math.floor(pos.y/GS);
+  let hits=[];
+  const cellKey=ck(gx,gy);
+  freeforms.forEach(ff=>{
+    if(ff.cells.has(cellKey)){
+      const z=(LAYER[ff.cat]||1)*10+(ff.zOff||0);
+      hits.push({uid:ff.uid,kind:"freeform",z});
+    }
+  });
+  elements.forEach(el=>{
+    if(pos.x>=el.x&&pos.x<=el.x+el.w*GS&&pos.y>=el.y&&pos.y<=el.y+el.h*GS){
+      const z=(LAYER[el.cat]||1)*10+(el.zOff||0);
+      hits.push({uid:el.uid,kind:"prefab",z});
+    }
+  });
+  hits.sort((a,b)=>b.z-a.z);
+  const hit=hits[0]||null;
+  const hitUid=hit?hit.uid:null,hitKind=hit?hit.kind:null;
+  // Shift+click: toggle multi-select
+  if(shift&&hitUid){
+    if(multiSel.has(hitUid)) multiSel.delete(hitUid);
+    else multiSel.add(hitUid);
+    selectedId=hitUid;selectedType=hitKind;
+    renderAll();updateSelPanel();return;
+  }
+  // Normal click
+  if(!hitUid){selectedId=null;selectedType=null;multiSel.clear();renderAll();updateSelPanel();return}
+  multiSel.clear();
+  selectedId=hitUid;selectedType=hitKind;
+  snapshot();_snapped=true;_isDragActive=true;
+  // Start drag
+  if(hitKind==="freeform"){isDraggingFF=true;ffDragStart={x:pos.x,y:pos.y}}
+  else{const el=elements.find(x=>x.uid===hitUid);dragOff={x:pos.x-el.x,y:pos.y-el.y};dragging=hitUid;getCv().style.cursor="grabbing"}
+  renderAll();updateSelPanel();
+}
+function onMove(e){
+  const pos=gcp(e),cW=config.width*GS,cH=config.height*GS;
+  if(mode==="editshape"&&isDrawing){if(editShapeMode==="add")editShapePaint(pos);else editShapeErase(pos);renderAll();return}
+  if(mode==="draw"&&isDrawing){paintCells(pos);renderAll();return}
+  if(mode==="erase"&&isDrawing){eraseCells(pos);renderAll();updateInfo();return}
+  if(resizing){
+    const el=elements.find(x=>x.uid===resizing.uid);if(!el)return;
+    const dx=pos.x-resizing.sx,dy=pos.y-resizing.sy,h=resizing.handle;
+    let nX=resizing.ox,nY=resizing.oy,nW=resizing.ow,nH=resizing.oh;
+    if(h.includes('e'))nW=Math.max(1,Math.round((resizing.ow*GS+dx)/GS));
+    if(h.includes('w')){const dw=Math.round(dx/GS);nW=Math.max(1,resizing.ow-dw);nX=resizing.ox+(resizing.ow-nW)*GS}
+    if(h.includes('s'))nH=Math.max(1,Math.round((resizing.oh*GS+dy)/GS));
+    if(h.includes('n')){const dh=Math.round(dy/GS);nH=Math.max(1,resizing.oh-dh);nY=resizing.oy+(resizing.oh-nH)*GS}
+    nX=Math.max(0,nX);nY=Math.max(0,nY);if(nX+nW*GS>cW)nW=Math.floor((cW-nX)/GS);if(nY+nH*GS>cH)nH=Math.floor((cH-nY)/GS);
+    el.x=nX;el.y=nY;el.w=Math.max(1,nW);el.h=Math.max(1,nH);renderAll();updateSelPanel();return;
+  }
+  // Group-aware freeform drag
+  if(isDraggingFF&&ffDragStart){
+    const dx=Math.round((pos.x-ffDragStart.x)/GS),dy=Math.round((pos.y-ffDragStart.y)/GS);
+    if(!dx&&!dy)return;
+    const guids=getGroupUids(selectedId);
+    // Move all freeforms in group
+    const ffList=freeforms.filter(f=>guids.has(f.uid));
+    let ok=true;
+    const newCellMap=new Map();
+    ffList.forEach(ff=>{const nc=new Set();ff.cells.forEach(k=>{const[gx,gy]=pk(k);const nx=gx+dx,ny=gy+dy;if(nx<0||nx>=config.width||ny<0||ny>=config.height)ok=false;nc.add(ck(nx,ny))});newCellMap.set(ff.uid,nc)});
+    // Move prefabs in group too
+    const elList=elements.filter(e=>guids.has(e.uid));
+    elList.forEach(el=>{const nx=el.x+dx*GS,ny=el.y+dy*GS;if(nx<0||nx+el.w*GS>cW||ny<0||ny+el.h*GS>cH)ok=false});
+    if(ok){
+      ffList.forEach(ff=>ff.cells=newCellMap.get(ff.uid));
+      elList.forEach(el=>{el.x+=dx*GS;el.y+=dy*GS});
+      ffDragStart={x:ffDragStart.x+dx*GS,y:ffDragStart.y+dy*GS};
+      renderAll();updateSelPanel();
+    }
+    return;
+  }
+  // Group-aware prefab drag
+  if(!dragging)return;
+  const mainEl=elements.find(x=>x.uid===dragging);if(!mainEl)return;
+  const guids=getGroupUids(dragging);
+  let nx=snap(pos.x-dragOff.x),ny=snap(pos.y-dragOff.y);
+  const dx=nx-mainEl.x,dy=ny-mainEl.y;
+  if(!dx&&!dy)return;
+  // Check bounds for all group members
+  let ok=true;
+  elements.filter(e=>guids.has(e.uid)).forEach(el=>{const ex=el.x+dx,ey=el.y+dy;if(ex<0||ex+el.w*GS>cW||ey<0||ey+el.h*GS>cH)ok=false});
+  freeforms.filter(f=>guids.has(f.uid)).forEach(ff=>{ff.cells.forEach(k=>{const[gx,gy]=pk(k);const ngx=gx+Math.round(dx/GS),ngy=gy+Math.round(dy/GS);if(ngx<0||ngx>=config.width||ngy<0||ngy>=config.height)ok=false})});
+  if(ok){
+    elements.filter(e=>guids.has(e.uid)).forEach(el=>{el.x+=dx;el.y+=dy});
+    const gdx=Math.round(dx/GS),gdy=Math.round(dy/GS);
+    freeforms.filter(f=>guids.has(f.uid)).forEach(ff=>{const nc=new Set();ff.cells.forEach(k=>{const[gx,gy]=pk(k);nc.add(ck(gx+gdx,gy+gdy))});ff.cells=nc});
+    renderAll();updateSelPanel();
+  }
+}
+function onUp(){
+  const wasDragging=_isDragActive;
+  isDrawing=false;dragging=null;resizing=null;isDraggingFF=false;ffDragStart=null;_isDragActive=false;
+  getCv().style.cursor=mode==="draw"||mode==="editshape"?"crosshair":mode==="erase"?"":"default";
+  if(wasDragging){updateSelPanel();if(objPanelOpen)renderObjList()}
+}
+
+// ═══ EDIT MODAL ═══
+let editDir="N";
+function openEditModal(){document.getElementById("edit-width").value=config.width;document.getElementById("edit-height").value=config.height;editDir=config.northDir;renderEC();checkEW();document.getElementById("edit-modal").classList.add("visible");document.getElementById("edit-width").oninput=checkEW;document.getElementById("edit-height").oninput=checkEW}
+function closeEditModal(){document.getElementById("edit-modal").classList.remove("visible")}
+function renderEC(){const c=document.getElementById("edit-compass-btns");c.innerHTML="";DIRS.forEach(d=>{const b=document.createElement("button");b.className="compass-btn"+(d===editDir?" active":"");b.textContent=d;b.onclick=()=>{editDir=d;renderEC()};c.appendChild(b)})}
+function checkEW(){const nw=Math.max(10,Math.min(200,+document.getElementById("edit-width").value||10)),nh=Math.max(10,Math.min(200,+document.getElementById("edit-height").value||10));const oob=elements.some(el=>el.x+el.w*GS>nw*GS||el.y+el.h*GS>nh*GS)||freeforms.some(ff=>{let bad=false;ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx>=nw||gy>=nh)bad=true});return bad});document.getElementById("edit-warning").style.display=oob?"block":"none"}
+function applyEdit(){
+  const nw=Math.max(10,Math.min(200,+document.getElementById("edit-width").value||config.width)),nh=Math.max(10,Math.min(200,+document.getElementById("edit-height").value||config.height));
+  config.width=nw;config.height=nh;config.northDir=editDir;
+  recalcGS();
+  elements.forEach(el=>{el.x=Math.max(0,Math.min(nw*GS-el.w*GS,el.x));el.y=Math.max(0,Math.min(nh*GS-el.h*GS,el.y))});
+  freeforms.forEach(ff=>{const nc=new Set();ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<nw&&gy<nh)nc.add(k)});ff.cells=nc});
+  freeforms=freeforms.filter(ff=>ff.cells.size>0);
+  buildGrid();document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";
+  renderAll();updateSelPanel();updateInfo();closeEditModal();
+}
+
+function recalcGS(){
+  const oldGS=GS;
+  calcGS();
+  if(oldGS!==GS&&oldGS>0){
+    // Convert element pixel positions to new GS
+    elements.forEach(el=>{
+      const gx=Math.round(el.x/oldGS), gy=Math.round(el.y/oldGS);
+      el.x=gx*GS; el.y=gy*GS;
+    });
+  }
+}
+
+// ═══ SAVE/LOAD ═══
+let saves=[];
+function ser(){return{config:{...config},elements:elements.map(e=>({...e,x:Math.round(e.x/GS),y:Math.round(e.y/GS)})),freeforms:freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,cells:[...ff.cells]})),nextUid,nextGroupId}}
+function deser(d){
+  config=d.config;
+  freeforms=(d.freeforms||[]).map(ff=>({...ff,cells:new Set(ff.cells)}));
+  nextUid=d.nextUid||1;nextGroupId=d.nextGroupId||1;selectedId=null;selectedType=null;multiSel.clear();
+  calcGS();
+  elements=(d.elements||[]).map(e=>({...e,x:e.x*GS,y:e.y*GS}));
+  buildGrid();document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";renderAll();updateSelPanel();updateInfo();
+}
+function loadSaves(){try{saves=JSON.parse(localStorage.getItem("gardenPlannerSaves")||"[]")}catch(e){saves=[]}}
+function persistSaves(){try{localStorage.setItem("gardenPlannerSaves",JSON.stringify(saves))}catch(e){}}
+function openSaveModal(){loadSaves();document.getElementById("save-name").value="";renderSavesList();document.getElementById("save-modal").classList.add("visible")}
+function closeSaveModal(){document.getElementById("save-modal").classList.remove("visible")}
+function saveIteration(){const name=document.getElementById("save-name").value.trim()||("Save "+new Date().toLocaleString());loadSaves();saves.unshift({name,timestamp:Date.now(),data:ser()});persistSaves();renderSavesList();document.getElementById("save-name").value=""}
+function loadIteration(i){loadSaves();if(!saves[i])return;deser(saves[i].data);closeSaveModal()}
+function deleteIteration(i){loadSaves();saves.splice(i,1);persistSaves();renderSavesList()}
+function renameIteration(i){loadSaves();const n=prompt("Rename:",saves[i]?.name);if(n&&n.trim()){saves[i].name=n.trim();persistSaves();renderSavesList()}}
+function escH(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML}
+function renderSavesList(){
+  const c=document.getElementById("saves-list");c.innerHTML="";
+  if(!saves.length){c.innerHTML='<div style="text-align:center;padding:20px;color:#8a9a8a;font-size:12px">No saves yet.</div>';return}
+  saves.forEach((s,i)=>{const d=new Date(s.timestamp);const t=(s.data.elements?.length||0)+(s.data.freeforms?.length||0);
+    const div=document.createElement("div");div.className="save-item";
+    div.innerHTML=`<div style="flex:1;min-width:0"><div class="si-name">${escH(s.name)}</div><div class="si-meta">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • ${t} el • ${s.data.config?.width}×${s.data.config?.height} ft</div></div><div class="si-actions"><button class="si-btn" onclick="event.stopPropagation();renameIteration(${i})">✏️</button><button class="si-btn danger" onclick="event.stopPropagation();deleteIteration(${i})">🗑</button></div>`;
+    div.onclick=()=>loadIteration(i);c.appendChild(div);
+  });
+}
+function exportToFile(){loadSaves();const blob=new Blob([JSON.stringify({currentState:ser(),savedIterations:saves},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="garden-plan-"+new Date().toISOString().slice(0,10)+".json";a.click()}
+function importFromFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.currentState)deser(d.currentState);if(d.savedIterations){loadSaves();const ex=new Set(saves.map(s=>s.timestamp));d.savedIterations.forEach(s=>{if(!ex.has(s.timestamp))saves.push(s)});saves.sort((a,b)=>b.timestamp-a.timestamp);persistSaves();renderSavesList()}closeSaveModal()}catch(err){alert("Error: "+err.message)}};r.readAsText(f);e.target.value=""}
+
+// ═══ OBJECT MANAGER ═══
+let objPanelOpen=false;
+
+function toggleObjPanel(){
+  objPanelOpen=!objPanelOpen;
+  document.getElementById("obj-panel").classList.toggle("open",objPanelOpen);
+  document.getElementById("obj-toggle-btn").style.background=objPanelOpen?"#eef5e5":"";
+  document.getElementById("obj-toggle-btn").style.borderColor=objPanelOpen?"#5D8233":"";
+  document.getElementById("obj-toggle-btn").style.color=objPanelOpen?"#4a6d28":"";
+  if(objPanelOpen) renderObjList();
+  setTimeout(()=>{if(config){recalcGS();buildGrid();renderAll()}},280);
+}
+
+let objFilterCat="all";
+let collapsedGroups=new Set();
+let expandedRows=new Set();
+
+function renderObjList(){
+  if(!objPanelOpen) return;
+  const list=document.getElementById("obj-list");
+  const query=(document.getElementById("obj-search").value||"").toLowerCase().trim();
+
+  // Build items
+  const items=[];
+  elements.forEach(el=>{
+    items.push({kind:"prefab",uid:el.uid,icon:el.icon,label:el.label,color:el.color,cat:el.cat||"other",
+      x:Math.round(el.x/GS),y:Math.round(el.y/GS),w:el.w,h:el.h,groupId:el.groupId||null,zOff:el.zOff||0});
+  });
+  freeforms.forEach(ff=>{
+    let mnX=1e9,mnY=1e9;
+    ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy});
+    items.push({kind:"freeform",uid:ff.uid,icon:ff.icon,label:ff.label,color:ff.color,cat:ff.cat||"other",
+      x:mnX,y:mnY,w:null,h:null,area:ff.cells.size,groupId:ff.groupId||null,zOff:ff.zOff||0});
+  });
+
+  // Count per category
+  const catCounts={};
+  items.forEach(it=>{catCounts[it.cat]=(catCounts[it.cat]||0)+1});
+
+  document.getElementById("obj-count").textContent=" — "+items.length;
+
+  // Render filter tabs
+  const fbar=document.getElementById("obj-filters");
+  fbar.innerHTML="";
+  const allBtn=document.createElement("button");
+  allBtn.className="obj-ftab"+(objFilterCat==="all"?" active":"");
+  allBtn.innerHTML=`All<span class="ftab-count">${items.length}</span>`;
+  allBtn.onclick=()=>{objFilterCat="all";renderObjList()};
+  fbar.appendChild(allBtn);
+  CATS.forEach(cat=>{
+    if(!catCounts[cat.id])return;
+    const b=document.createElement("button");
+    b.className="obj-ftab"+(objFilterCat===cat.id?" active":"");
+    b.innerHTML=`${cat.icon}<span class="ftab-count">${catCounts[cat.id]}</span>`;
+    b.title=cat.label;
+    b.onclick=()=>{objFilterCat=cat.id;renderObjList()};
+    fbar.appendChild(b);
+  });
+
+  // Filter
+  let filtered=items;
+  if(objFilterCat!=="all") filtered=filtered.filter(it=>it.cat===objFilterCat);
+  if(query) filtered=filtered.filter(it=>it.label.toLowerCase().includes(query));
+
+  list.innerHTML="";
+
+  if(!filtered.length){
+    list.innerHTML='<div style="text-align:center;padding:28px;color:#8a9a8a;font-size:12px">'+(items.length?(query?'No matches for "'+escH(query)+'"':'No objects in this category'):'No objects placed yet')+'</div>';
+    return;
+  }
+
+  // Group by category
+  const groups=new Map();
+  filtered.forEach(it=>{
+    if(!groups.has(it.cat)) groups.set(it.cat,[]);
+    groups.get(it.cat).push(it);
+  });
+
+  // Render groups in CATS order
+  const catOrder=CATS.map(c=>c.id);
+  const sortedKeys=[...groups.keys()].sort((a,b)=>(catOrder.indexOf(a)||99)-(catOrder.indexOf(b)||99));
+
+  sortedKeys.forEach(catId=>{
+    const catInfo=CATS.find(c=>c.id===catId)||{icon:"📦",label:catId};
+    const groupItems=groups.get(catId);
+    const isCollapsed=collapsedGroups.has(catId);
+
+    // Group header
+    const hdr=document.createElement("div");
+    hdr.className="obj-group-hdr";
+    hdr.innerHTML=`<span class="og-arrow ${isCollapsed?"collapsed":""}">▼</span><span class="og-icon">${catInfo.icon}</span><span class="og-label">${catInfo.label}</span><span class="og-count">${groupItems.length}</span>`;
+    hdr.onclick=()=>{
+      if(collapsedGroups.has(catId)) collapsedGroups.delete(catId); else collapsedGroups.add(catId);
+      renderObjList();
+    };
+    list.appendChild(hdr);
+
+    // Group body
+    const body=document.createElement("div");
+    body.className="obj-group-body"+(isCollapsed?" collapsed":"");
+
+    groupItems.forEach(item=>{
+      const isActive=(item.uid===selectedId&&((item.kind==="prefab"&&selectedType==="prefab")||(item.kind==="freeform"&&selectedType==="freeform")));
+      const isExpanded=expandedRows.has(item.uid);
+      const dimsText=item.kind==="prefab"?`${item.w}×${item.h} @ (${item.x},${item.y})`:`${item.area}ft² @ (${item.x},${item.y})`;
+      const grpBadge=item.groupId?`<span style="font-size:9px;color:#1565C0;background:#E3F2FD;padding:0 4px;border-radius:3px;margin-left:2px" title="Group ${item.groupId}">🔗</span>`:"";
+
+      const row=document.createElement("div");
+      row.className="obj-row"+(isActive?" active":"");
+      row.innerHTML=`
+        <span class="or-icon">${item.icon}</span>
+        <div class="or-swatch" style="background:${item.color}"><input type="color" value="${item.color}" onchange="objSetColor(${item.uid},'${item.kind}',this.value)" onclick="event.stopPropagation()"></div>
+        <span class="or-name" title="Double-click to rename" ondblclick="event.stopPropagation();objRename(${item.uid},'${item.kind}',this)">${escH(item.label)}${grpBadge}</span>
+        <span class="or-dims">${dimsText}</span>
+        <div class="or-actions">
+          <button class="or-abtn" onclick="event.stopPropagation();objLayerMove(${item.uid},'${item.kind}',-1)" title="Layer down">▼</button>
+          <button class="or-abtn" onclick="event.stopPropagation();objLayerMove(${item.uid},'${item.kind}',1)" title="Layer up">▲</button>
+          <button class="or-abtn" onclick="event.stopPropagation();toggleExpandRow(${item.uid})" title="Edit details">⚙</button>
+          <button class="or-abtn" onclick="event.stopPropagation();objDuplicate(${item.uid},'${item.kind}')" title="Duplicate">📋</button>
+          <button class="or-abtn danger" onclick="event.stopPropagation();objDelete(${item.uid},'${item.kind}')" title="Delete">🗑</button>
+        </div>`;
+      row.onclick=()=>{
+        selectedId=item.uid;selectedType=item.kind;
+        if(mode!=="place") setMode("place");
+        renderAll();updateSelPanel();renderObjList();
+        scrollToElement(item);
+      };
+      body.appendChild(row);
+
+      // Expandable edit row
+      const exp=document.createElement("div");
+      exp.className="or-expand"+(isExpanded?"":" hidden");
+      if(item.kind==="prefab"){
+        exp.innerHTML=`
+          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">X</div><input class="or-field" type="number" value="${item.x}" min="0" onchange="objSetPos(${item.uid},'x',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
+          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">Y</div><input class="or-field" type="number" value="${item.y}" min="0" onchange="objSetPos(${item.uid},'y',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
+          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">W</div><input class="or-field" type="number" value="${item.w}" min="1" onchange="objSetDim(${item.uid},'w',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
+          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">H</div><input class="or-field" type="number" value="${item.h}" min="1" onchange="objSetDim(${item.uid},'h',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>`;
+      } else {
+        exp.innerHTML=`
+          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">X</div><input class="or-field" type="number" value="${item.x}" min="0" onchange="objFFSetPos(${item.uid},'x',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
+          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">Y</div><input class="or-field" type="number" value="${item.y}" min="0" onchange="objFFSetPos(${item.uid},'y',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
+          <div style="font-size:10px;color:#6b7c6b;padding:6px 0">Area: ${item.area} ft²</div>`;
+      }
+      body.appendChild(exp);
+    });
+
+    list.appendChild(body);
+  });
+}
+
+function toggleExpandRow(uid){
+  if(expandedRows.has(uid)) expandedRows.delete(uid); else expandedRows.add(uid);
+  renderObjList();
+}
+
+function scrollToElement(item){
+  const cv=document.getElementById("canvas");
+  const area=document.querySelector(".canvas-area");
+  const px=item.x*GS, py=item.y*GS;
+  // Scroll so the element is centered
+  area.scrollTo({left:px-area.clientWidth/2+50,top:py-area.clientHeight/2+50,behavior:"smooth"});
+}
+
+function objSetPos(uid,axis,val){
+  const el=elements.find(e=>e.uid===uid);if(!el)return;
+  snapshot();
+  const v=Math.max(0,parseInt(val)||0);
+  const cW=config.width*GS,cH=config.height*GS;
+  if(axis==="x") el.x=Math.min(cW-el.w*GS,v*GS);
+  else el.y=Math.min(cH-el.h*GS,v*GS);
+  renderAll();updateSelPanel();renderObjList();
+}
+
+function objSetDim(uid,axis,val){
+  const el=elements.find(e=>e.uid===uid);if(!el)return;
+  snapshot();
+  const v=Math.max(1,Math.min(200,parseInt(val)||1));
+  if(axis==="w") el.w=v; else el.h=v;
+  const cW=config.width*GS,cH=config.height*GS;
+  el.x=Math.max(0,Math.min(cW-el.w*GS,el.x));
+  el.y=Math.max(0,Math.min(cH-el.h*GS,el.y));
+  renderAll();updateSelPanel();renderObjList();
+}
+
+function objFFSetPos(uid,axis,val){
+  const ff=freeforms.find(f=>f.uid===uid);if(!ff)return;
+  const v=Math.max(0,parseInt(val)||0);
+  let mnX=1e9,mnY=1e9;
+  ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy});
+  const dx=axis==="x"?v-mnX:0;
+  const dy=axis==="y"?v-mnY:0;
+  if(!dx&&!dy)return;
+  snapshot();
+  const nc=new Set();let ok=true;
+  ff.cells.forEach(k=>{const[gx,gy]=pk(k);const nx=gx+dx,ny=gy+dy;if(nx<0||nx>=config.width||ny<0||ny>=config.height)ok=false;nc.add(ck(nx,ny))});
+  if(ok){ff.cells=nc;renderAll();updateSelPanel();renderObjList()}
+}
+
+function objSetColor(uid,kind,color){
+  snapshot();
+  if(kind==="prefab"){const el=elements.find(e=>e.uid===uid);if(el)el.color=color;}
+  else{const ff=freeforms.find(f=>f.uid===uid);if(ff)ff.color=color;}
+  renderAll();renderObjList();
+}
+
+function objLayerMove(uid,kind,delta){
+  snapshot();
+  const obj=kind==="prefab"?elements.find(e=>e.uid===uid):freeforms.find(f=>f.uid===uid);
+  if(obj) obj.zOff=Math.max(-20,Math.min(20,(obj.zOff||0)+delta));
+  renderAll();updateSelPanel();renderObjList();
+}
+
+function objDelete(uid,kind){
+  snapshot();
+  if(kind==="prefab") elements=elements.filter(e=>e.uid!==uid);
+  else freeforms=freeforms.filter(f=>f.uid!==uid);
+  if(selectedId===uid){selectedId=null;selectedType=null}
+  renderAll();updateSelPanel();updateInfo();renderObjList();
+}
+
+function objRenamePrompt(uid,kind){
+  const obj=kind==="prefab"?elements.find(e=>e.uid===uid):freeforms.find(f=>f.uid===uid);
+  if(!obj)return;
+  const n=prompt("Rename object:",obj.label);
+  if(n&&n.trim()){snapshot();obj.label=n.trim();renderAll();updateSelPanel();renderObjList()}
+}
+
+function objRename(uid,kind,span){
+  const obj=kind==="prefab"?elements.find(e=>e.uid===uid):freeforms.find(f=>f.uid===uid);
+  if(!obj)return;
+  const inp=document.createElement("input");
+  inp.type="text";inp.value=obj.label;
+  inp.className="or-field";
+  inp.style.cssText="width:100%;font-size:11px;font-weight:600;padding:2px 4px;";
+  span.replaceWith(inp);
+  inp.focus();inp.select();
+  const commit=()=>{
+    const v=inp.value.trim();
+    if(v&&v!==obj.label){snapshot();obj.label=v;renderAll();updateSelPanel()}
+    renderObjList();
+  };
+  inp.onblur=commit;
+  inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();commit()}if(e.key==="Escape"){renderObjList()}};
+}
+</script>
+</body>
+</html>
