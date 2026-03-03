@@ -2172,7 +2172,7 @@ function toggleObjPanel(){
 }
 
 let objFilterCat="all";
-let collapsedGroups=new Set();
+let collapsedGroups=new Set(CATS.map(c=>c.id).concat(["freeform","notes"]));
 let expandedRows=new Set();
 
 function renderObjList(){
