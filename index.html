@@ -674,6 +674,7 @@ function saveCurrentTabState(){
   tab.showLabels=showLabels;tab.showGrid=showGrid;tab.showHouse=showHouse;
 }
 function loadTabState(tab){
+  clearDomCache();
   config=tab.config?{...tab.config}:null;
   elements=tab.elements.map(e=>({...e}));
   freeforms=tab.freeforms.map(ff=>({uid:ff.uid,id:ff.id,label:ff.label,icon:ff.icon,color:ff.color,cat:ff.cat||"other",groupId:ff.groupId||null,zOff:ff.zOff||0,locked:ff.locked||false,cells:new Set(ff.cells)}));
@@ -809,7 +810,7 @@ function _saveState(){
 function _restoreState(s){
   elements=s.elements;freeforms=s.freeforms;notes=s.notes||[];nextUid=s.nextUid;nextGroupId=s.nextGroupId||nextGroupId;
   selectedId=null;selectedType=null;multiSel.clear();
-  renderAll();updateSelPanel();updateInfo();updateUndoButtons();
+  clearDomCache();renderAll();updateSelPanel();updateInfo();updateUndoButtons();
 }
 function undo(){
   if(!undoStack.length)return;
@@ -1013,6 +1014,11 @@ function renderRecentItems(){
 
 // ═══ RENDER ═══
 let _rafPending=false, _cvEl=null;
+// DOM cache: maps uid → DOM element so we reuse instead of rebuild
+let _domCache=new Map(); // uid → {node, type, hash}
+let _ffTransforms=new Map(); // uid → {dx, dy} for fast freeform drag offset
+let _dirtyAll=true; // forces full rebuild when true
+
 function getCv(){return _cvEl||(_cvEl=document.getElementById("canvas"))}
 function scheduleRender(){
   if(_rafPending)return;
@@ -1020,95 +1026,215 @@ function scheduleRender(){
   requestAnimationFrame(()=>{_rafPending=false;doRenderAll()});
 }
 function renderAll(immediate){
+  _dirtyAll=true;
   if(immediate){doRenderAll();return}
   scheduleRender();
 }
-function doRenderAll(){
+
+// Fast position-only update during drags — skips full DOM rebuild
+function renderDragMove(movedUids){
   const cv=getCv();
-  cv.querySelectorAll(".placed-el,.ff-group,.draw-preview,.note-el,.align-guide").forEach(e=>e.remove());
-  renderFF(cv);renderDrawPreview(cv);renderPrefabs(cv);renderNotes(cv);
-}
-function renderPrefabs(cv){
-  if(!cv)cv=getCv();
-  const frag=document.createDocumentFragment();
-  elements.forEach(el=>{
-    const isSel=selectedType==="prefab"&&el.uid===selectedId;
-    const isHL=isHighlighted(el.uid);
-    const d=document.createElement("div");
-    const isRound = ROUND_IDS.has(el.id) || el.cat==="flowers" || el.cat==="produce";
-    const isFence = FENCE_IDS.has(el.id);
-    const isGate = GATE_IDS.has(el.id);
-    let cls="placed-el";
-    if(isRound) cls+=" round";
-    if(isFence) cls+=" fence";
-    if(isGate) cls+=" fence-gate";
-    if(isSel) cls+=" selected";
-    if(isHL&&!isSel) cls+=" grouped";
-    if(el.locked) cls+=" locked";
-    d.className=cls;
-    d.dataset.uid=el.uid;d.dataset.kind="prefab";
-    const z=isSel?50:((LAYER[el.cat]||1)*10+(el.zOff||0));
-    const rot=el.rot||0;
-    d.style.cssText=`left:${el.x}px;top:${el.y}px;width:${el.w*GS}px;height:${el.h*GS}px;background:${el.color};z-index:${z};${rot?`transform:rotate(${rot}deg);transform-origin:center center;`:""}`;
-    let h="";
-    if(isFence){
-      // Fence: border-only with posts at corners
-      const pw=el.w*GS, ph=el.h*GS;
-      h+=`<div class="fence-post" style="top:-3px;left:-3px"></div>`;
-      h+=`<div class="fence-post" style="top:-3px;right:-3px"></div>`;
-      h+=`<div class="fence-post" style="bottom:-3px;left:-3px"></div>`;
-      h+=`<div class="fence-post" style="bottom:-3px;right:-3px"></div>`;
-      // Add intermediate posts every ~5ft
-      if(el.w>3){const step=Math.max(2,Math.round(el.w/Math.ceil(el.w/5)));for(let i=step;i<el.w;i+=step){const px=i*GS;h+=`<div class="fence-post" style="top:-3px;left:${px-3}px"></div><div class="fence-post" style="bottom:-3px;left:${px-3}px"></div>`}}
-      if(el.h>3){const step=Math.max(2,Math.round(el.h/Math.ceil(el.h/5)));for(let i=step;i<el.h;i+=step){const py=i*GS;h+=`<div class="fence-post" style="left:-3px;top:${py-3}px"></div><div class="fence-post" style="right:-3px;top:${py-3}px"></div>`}}
-      if(showLabels&&pw>30)h+=`<span class="el-label" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);color:#6D4C41;text-shadow:0 1px 2px rgba(255,255,255,0.8)">${el.label}</span>`;
-    } else if(isGate){
-      // Gate: dashed border on two sides with icon
-      const isV=el.id==="fence-gate-v";
-      if(isV) d.classList.add("rot90");
-      h+=`<div class="gate-opening"><span style="font-size:${Math.max(10,Math.min(el.w,el.h)*GS*0.35)}px">🚪</span></div>`;
-      if(showLabels)h+=`<span class="el-label" style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);color:#5D4037;text-shadow:0 1px 2px rgba(255,255,255,0.8);font-size:7px">Gate</span>`;
-    } else {
-      const sz=Math.min(el.w,el.h)*GS*0.4;
-      h+=`<span class="el-icon" style="font-size:${Math.max(10,sz)}px">${el.icon}</span>`;
-      if(showLabels&&el.w*GS>20&&el.h*GS>24)h+=`<span class="el-label">${el.label}</span>`;
+  movedUids.forEach(uid=>{
+    const cached=_domCache.get(uid);
+    if(!cached)return;
+    if(cached.type==="prefab"){
+      const el=elements.find(e=>e.uid===uid);
+      if(el&&cached.node.parentNode){
+        cached.node.style.left=el.x+"px";
+        cached.node.style.top=el.y+"px";
+      }
+    } else if(cached.type==="freeform"){
+      const ff=freeforms.find(f=>f.uid===uid);
+      if(ff&&cached.node.parentNode){
+        // Use CSS transform to offset the whole group — way faster than moving each cell
+        const t=_ffTransforms.get(uid);
+        if(t){
+          cached.node.style.transform=`translate(${t.dx}px,${t.dy}px)`;
+        }
+      }
+    } else if(cached.type==="note"){
+      const n=notes.find(x=>x.uid===uid);
+      if(n&&cached.node.parentNode){
+        cached.node.style.left=n.x+"px";
+        cached.node.style.top=n.y+"px";
+      }
     }
-    if(isSel){["nw","ne","sw","se","n","s","e","w"].forEach(x=>h+=`<div class="resize-handle ${x}" data-handle="${x}"></div>`);h+=`<div class="rotate-handle" data-handle="rotate">↻</div>`}
-    d.innerHTML=h;frag.appendChild(d);
   });
-  cv.appendChild(frag);
+  // Update alignment guides are handled separately by caller
 }
-function renderFF(cv){
-  if(!cv)cv=getCv();
-  const frag=document.createDocumentFragment();
+
+// Hash to detect when an element needs full rebuild vs just position
+function _prefabHash(el){
+  const isSel=selectedType==="prefab"&&el.uid===selectedId;
+  const isHL=isHighlighted(el.uid);
+  return `${el.id}|${el.w}|${el.h}|${el.color}|${el.rot||0}|${el.locked?1:0}|${isSel?1:0}|${isHL?1:0}|${el.icon}|${el.label}|${el.zOff||0}|${showLabels?1:0}`;
+}
+function _ffHash(ff){
+  const isSel=selectedType==="freeform"&&ff.uid===selectedId;
+  const isHL=isHighlighted(ff.uid);
+  const isEditing=editingFFUid===ff.uid;
+  return `${ff.color}|${ff.cells.size}|${isSel?1:0}|${isHL?1:0}|${isEditing?1:0}|${ff.zOff||0}|${ff.label}|${showLabels?1:0}`;
+}
+
+function doRenderAll(){
+  _dirtyAll=false;
+  const cv=getCv();
+  // Remove stale alignment guides and draw previews (these are always transient)
+  cv.querySelectorAll(".draw-preview,.align-guide").forEach(e=>e.remove());
+  renderDrawPreview(cv);
+
+  // Track which uids are still alive
+  const liveUids=new Set();
+
+  // ─── FREEFORMS ───
   freeforms.forEach(ff=>{
-    const isSel=selectedType==="freeform"&&ff.uid===selectedId;
-    const isHL=isHighlighted(ff.uid);
-    const isEditing=editingFFUid===ff.uid;
-    const g=document.createElement("div");
-    g.className="ff-group"+(mode==="place"||isEditing?" selectable":"");
-    g.dataset.uid=ff.uid;g.dataset.kind="freeform";
-    const z=isEditing?60:isSel?49:((LAYER[ff.cat]||1)*10+(ff.zOff||0));
-    g.style.cssText=`width:${config.width*GS}px;height:${config.height*GS}px;z-index:${z};`;
-    let mnX=1e9,mnY=1e9,mxX=-1,mxY=-1;
-    ff.cells.forEach(k=>{
-      const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy;if(gx>mxX)mxX=gx;if(gy>mxY)mxY=gy;
-      const c=document.createElement("div");c.className="ff-cell"+(isEditing?" editing":"");
-      const hN=ff.cells.has(ck(gx,gy-1)),hS=ff.cells.has(ck(gx,gy+1)),hE=ff.cells.has(ck(gx+1,gy)),hW=ff.cells.has(ck(gx-1,gy));
-      const r1=(!hN&&!hW)?6:0,r2=(!hN&&!hE)?6:0,r3=(!hS&&!hE)?6:0,r4=(!hS&&!hW)?6:0;
-      const bdr=isEditing?"1.5px solid rgba(171,71,188,0.6)":isSel?"1px solid rgba(255,214,0,0.5)":isHL?"1px solid rgba(100,180,255,0.5)":"1px solid rgba(0,0,0,0.08)";
-      c.style.cssText=`left:${gx*GS}px;top:${gy*GS}px;width:${GS}px;height:${GS}px;background:${ff.color};opacity:${isEditing?0.9:0.82};border-radius:${r1}px ${r2}px ${r3}px ${r4}px;border:${bdr};`;
-      g.appendChild(c);
-    });
-    if(showLabels&&ff.cells.size>=3){
-      const cx=((mnX+mxX)/2)*GS+GS/2,cy=((mnY+mxY)/2)*GS+GS/2;
-      const l=document.createElement("div");l.className="fg-label";l.style.cssText=`left:${cx}px;top:${cy}px;transform:translate(-50%,-50%)`;
-      l.textContent=(isEditing?"✏️ ":"")+ff.icon+" "+ff.label;g.appendChild(l);
+    liveUids.add(ff.uid);
+    const hash=_ffHash(ff);
+    const cached=_domCache.get(ff.uid);
+    _ffTransforms.delete(ff.uid); // reset any drag transform
+    if(cached&&cached.type==="freeform"&&cached.hash===hash&&cached.node.parentNode){
+      // Reuse — just reset transform and update z-index
+      cached.node.style.transform="";
+      const isSel=selectedType==="freeform"&&ff.uid===selectedId;
+      const isEditing=editingFFUid===ff.uid;
+      const z=isEditing?60:isSel?49:((LAYER[ff.cat]||1)*10+(ff.zOff||0));
+      cached.node.style.zIndex=z;
+      return;
     }
-    frag.appendChild(g);
+    // Need full rebuild for this freeform
+    if(cached&&cached.node.parentNode) cached.node.remove();
+    const g=_buildFFNode(ff);
+    _domCache.set(ff.uid,{node:g,type:"freeform",hash});
+    cv.appendChild(g);
   });
-  cv.appendChild(frag);
+
+  // ─── PREFABS ───
+  elements.forEach(el=>{
+    liveUids.add(el.uid);
+    const hash=_prefabHash(el);
+    const cached=_domCache.get(el.uid);
+    if(cached&&cached.type==="prefab"&&cached.hash===hash&&cached.node.parentNode){
+      // Reuse — just update position (may have changed from nudge/etc)
+      cached.node.style.left=el.x+"px";
+      cached.node.style.top=el.y+"px";
+      return;
+    }
+    // Need full rebuild for this prefab
+    if(cached&&cached.node.parentNode) cached.node.remove();
+    const d=_buildPrefabNode(el);
+    _domCache.set(el.uid,{node:d,type:"prefab",hash});
+    cv.appendChild(d);
+  });
+
+  // ─── NOTES ───
+  notes.forEach(n=>{
+    liveUids.add(n.uid);
+    const cached=_domCache.get(n.uid);
+    if(cached&&cached.type==="note"&&cached.node.parentNode){
+      cached.node.style.left=n.x+"px";
+      cached.node.style.top=n.y+"px";
+      // Update selection state
+      const isSel=selectedType==="note"&&n.uid===selectedId;
+      cached.node.className="note-el"+(isSel?" selected":"");
+      return;
+    }
+    if(cached&&cached.node.parentNode) cached.node.remove();
+    const node=_buildNoteNode(n);
+    _domCache.set(n.uid,{node:node,type:"note",hash:""});
+    cv.appendChild(node);
+  });
+
+  // ─── CLEANUP: remove DOM for deleted objects ───
+  for(const[uid,cached] of _domCache){
+    if(!liveUids.has(uid)){
+      if(cached.node.parentNode) cached.node.remove();
+      _domCache.delete(uid);
+    }
+  }
 }
+
+// ─── DOM NODE BUILDERS ───
+function _buildPrefabNode(el){
+  const isSel=selectedType==="prefab"&&el.uid===selectedId;
+  const isHL=isHighlighted(el.uid);
+  const d=document.createElement("div");
+  const isRound = ROUND_IDS.has(el.id) || el.cat==="flowers" || el.cat==="produce";
+  const isFence = FENCE_IDS.has(el.id);
+  const isGate = GATE_IDS.has(el.id);
+  let cls="placed-el";
+  if(isRound) cls+=" round";
+  if(isFence) cls+=" fence";
+  if(isGate) cls+=" fence-gate";
+  if(isSel) cls+=" selected";
+  if(isHL&&!isSel) cls+=" grouped";
+  if(el.locked) cls+=" locked";
+  d.className=cls;
+  d.dataset.uid=el.uid;d.dataset.kind="prefab";
+  const z=isSel?50:((LAYER[el.cat]||1)*10+(el.zOff||0));
+  const rot=el.rot||0;
+  d.style.cssText=`left:${el.x}px;top:${el.y}px;width:${el.w*GS}px;height:${el.h*GS}px;background:${el.color};z-index:${z};${rot?`transform:rotate(${rot}deg);transform-origin:center center;`:""}`;
+  let h="";
+  if(isFence){
+    const pw=el.w*GS, ph=el.h*GS;
+    h+=`<div class="fence-post" style="top:-3px;left:-3px"></div>`;
+    h+=`<div class="fence-post" style="top:-3px;right:-3px"></div>`;
+    h+=`<div class="fence-post" style="bottom:-3px;left:-3px"></div>`;
+    h+=`<div class="fence-post" style="bottom:-3px;right:-3px"></div>`;
+    if(el.w>3){const step=Math.max(2,Math.round(el.w/Math.ceil(el.w/5)));for(let i=step;i<el.w;i+=step){const px=i*GS;h+=`<div class="fence-post" style="top:-3px;left:${px-3}px"></div><div class="fence-post" style="bottom:-3px;left:${px-3}px"></div>`}}
+    if(el.h>3){const step=Math.max(2,Math.round(el.h/Math.ceil(el.h/5)));for(let i=step;i<el.h;i+=step){const py=i*GS;h+=`<div class="fence-post" style="left:-3px;top:${py-3}px"></div><div class="fence-post" style="right:-3px;top:${py-3}px"></div>`}}
+    if(showLabels&&pw>30)h+=`<span class="el-label" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);color:#6D4C41;text-shadow:0 1px 2px rgba(255,255,255,0.8)">${el.label}</span>`;
+  } else if(isGate){
+    const isV=el.id==="fence-gate-v";
+    if(isV) d.classList.add("rot90");
+    h+=`<div class="gate-opening"><span style="font-size:${Math.max(10,Math.min(el.w,el.h)*GS*0.35)}px">🚪</span></div>`;
+    if(showLabels)h+=`<span class="el-label" style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);color:#5D4037;text-shadow:0 1px 2px rgba(255,255,255,0.8);font-size:7px">Gate</span>`;
+  } else {
+    const sz=Math.min(el.w,el.h)*GS*0.4;
+    h+=`<span class="el-icon" style="font-size:${Math.max(10,sz)}px">${el.icon}</span>`;
+    if(showLabels&&el.w*GS>20&&el.h*GS>24)h+=`<span class="el-label">${el.label}</span>`;
+  }
+  if(isSel){["nw","ne","sw","se","n","s","e","w"].forEach(x=>h+=`<div class="resize-handle ${x}" data-handle="${x}"></div>`);h+=`<div class="rotate-handle" data-handle="rotate">↻</div>`}
+  d.innerHTML=h;
+  return d;
+}
+
+function _buildFFNode(ff){
+  const isSel=selectedType==="freeform"&&ff.uid===selectedId;
+  const isHL=isHighlighted(ff.uid);
+  const isEditing=editingFFUid===ff.uid;
+  const g=document.createElement("div");
+  g.className="ff-group"+(mode==="place"||isEditing?" selectable":"");
+  g.dataset.uid=ff.uid;g.dataset.kind="freeform";
+  const z=isEditing?60:isSel?49:((LAYER[ff.cat]||1)*10+(ff.zOff||0));
+  g.style.cssText=`width:${config.width*GS}px;height:${config.height*GS}px;z-index:${z};`;
+  let mnX=1e9,mnY=1e9,mxX=-1,mxY=-1;
+  ff.cells.forEach(k=>{
+    const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy;if(gx>mxX)mxX=gx;if(gy>mxY)mxY=gy;
+    const c=document.createElement("div");c.className="ff-cell"+(isEditing?" editing":"");
+    const hN=ff.cells.has(ck(gx,gy-1)),hS=ff.cells.has(ck(gx,gy+1)),hE=ff.cells.has(ck(gx+1,gy)),hW=ff.cells.has(ck(gx-1,gy));
+    const r1=(!hN&&!hW)?6:0,r2=(!hN&&!hE)?6:0,r3=(!hS&&!hE)?6:0,r4=(!hS&&!hW)?6:0;
+    const bdr=isEditing?"1.5px solid rgba(171,71,188,0.6)":isSel?"1px solid rgba(255,214,0,0.5)":isHL?"1px solid rgba(100,180,255,0.5)":"1px solid rgba(0,0,0,0.08)";
+    c.style.cssText=`left:${gx*GS}px;top:${gy*GS}px;width:${GS}px;height:${GS}px;background:${ff.color};opacity:${isEditing?0.9:0.82};border-radius:${r1}px ${r2}px ${r3}px ${r4}px;border:${bdr};`;
+    g.appendChild(c);
+  });
+  if(showLabels&&ff.cells.size>=3){
+    const cx=((mnX+mxX)/2)*GS+GS/2,cy=((mnY+mxY)/2)*GS+GS/2;
+    const l=document.createElement("div");l.className="fg-label";l.style.cssText=`left:${cx}px;top:${cy}px;transform:translate(-50%,-50%)`;
+    l.textContent=(isEditing?"✏️ ":"")+ff.icon+" "+ff.label;g.appendChild(l);
+  }
+  return g;
+}
+
+function _buildNoteNode(n){
+  const isSel=selectedType==="note"&&n.uid===selectedId;
+  const d=document.createElement("div");
+  d.className="note-el"+(isSel?" selected":"");
+  d.dataset.uid=n.uid;d.dataset.kind="note";
+  d.style.cssText=`left:${n.x}px;top:${n.y}px;`;
+  d.textContent=n.text;
+  return d;
+}
+
 function renderDrawPreview(cv){
   if(!drawCells.size)return;if(!cv)cv=getCv();
   const frag=document.createDocumentFragment();
@@ -1121,6 +1247,17 @@ function renderDrawPreview(cv){
     frag.appendChild(c);
   });
   cv.appendChild(frag);
+}
+
+// Invalidate cache for specific uid (forces rebuild on next render)
+function invalidateCache(uid){
+  const c=_domCache.get(uid);
+  if(c) c.hash="";
+}
+// Clear all cache (e.g. on tab switch, deser)
+function clearDomCache(){
+  _domCache.forEach(c=>{if(c.node.parentNode)c.node.remove()});
+  _domCache.clear();_ffTransforms.clear();
 }
 
 // ═══ SELECTION ═══
@@ -1264,26 +1401,33 @@ function updateFloatToolbar(){
     }
   }
   document.getElementById("ft-dims").style.display=(selectedType==="note")?"none":"flex";
-  // Position: above the selected object, centered horizontally
+  // Position: avoid covering the selected object
   ft.classList.add("visible");
   const ftW=ft.offsetWidth, ftH=ft.offsetHeight;
   const cv=document.getElementById("canvas");
   const cvOff=cv.offsetLeft||0, cvTop=cv.offsetTop||0;
-  // Object position in viewport coords (relative to canvas-area)
-  const objCenterX=cvOff+ox*zoom+ow*zoom/2;
-  const objTopY=cvTop+oy*zoom;
-  // Place above the object with some gap
-  let left=objCenterX-ftW/2;
-  let top=objTopY-ftH-12;
-  // If too high, place below
-  if(top-area.scrollTop<52) top=cvTop+oy*zoom+oh*zoom+12;
-  // Clamp within canvas-area viewport
-  const viewLeft=area.scrollLeft;
-  const viewTop=area.scrollTop;
-  const viewRight=viewLeft+area.clientWidth;
-  const viewBottom=viewTop+area.clientHeight;
-  left=Math.max(viewLeft+4, Math.min(viewRight-ftW-4, left));
-  top=Math.max(viewTop+52, Math.min(viewBottom-ftH-4, top));
+  // Object bounds in canvas-area coords
+  const objL=cvOff+ox*zoom, objT=cvTop+oy*zoom;
+  const objR=objL+ow*zoom, objB=objT+oh*zoom;
+  const objCX=(objL+objR)/2;
+  // Viewport bounds
+  const vL=area.scrollLeft, vT=area.scrollTop;
+  const vR=vL+area.clientWidth, vB=vT+area.clientHeight;
+  const pad=8, topBar=52;
+  let left, top, placed=false;
+  // Try above
+  top=objT-ftH-pad; left=objCX-ftW/2;
+  if(top>=vT+topBar){placed=true}
+  // Try below
+  if(!placed){top=objB+pad;left=objCX-ftW/2;if(top+ftH<=vB-4)placed=true}
+  // Try right
+  if(!placed){left=objR+pad;top=Math.max(vT+topBar,objT);if(left+ftW<=vR-4)placed=true}
+  // Try left
+  if(!placed){left=objL-ftW-pad;top=Math.max(vT+topBar,objT);if(left>=vL+4)placed=true}
+  // Fallback: top-right of viewport
+  if(!placed){left=vR-ftW-12;top=vT+topBar+4}
+  // Clamp horizontal
+  left=Math.max(vL+4, Math.min(vR-ftW-4, left));
   ft.style.left=left+"px";
   ft.style.top=top+"px";
 }
@@ -1701,18 +1845,6 @@ function addNote(pos){
   document.getElementById("note-text").value="";
   renderAll();updateInfo();
 }
-function renderNotes(cv){
-  if(!cv)cv=getCv();
-  const frag=document.createDocumentFragment();
-  notes.forEach(n=>{
-    const d=document.createElement("div");d.className="note-el"+(selectedType==="note"&&selectedId===n.uid?" selected":"");
-    d.dataset.uid=n.uid;d.dataset.kind="note";
-    d.style.cssText=`left:${n.x}px;top:${n.y}px;`;
-    d.textContent=n.text;
-    frag.appendChild(d);
-  });
-  cv.appendChild(frag);
-}
 function deleteNote(uid){snapshot();notes=notes.filter(n=>n.uid!==uid);if(selectedId===uid){selectedId=null;selectedType=null}renderAll();updateSelPanel();updateInfo()}
 // ═══ ALIGNMENT GUIDES ═══
 function getAlignGuides(uid,nx,ny,nw,nh){
@@ -1841,6 +1973,9 @@ function importDropped(e){
 }
 function gcp(e){const r=getCv().getBoundingClientRect();return{x:(e.clientX-r.left)/zoom,y:(e.clientY-r.top)/zoom}}
 let _snapped=false,_isDragActive=false;
+let _ffDragOrigCells=new Map(); // uid → Set of original cells at drag start
+let _elDragOrigPos=new Map();   // uid → {x,y} original positions at drag start  
+let _ffDragDelta={dx:0,dy:0};  // accumulated grid offset during freeform drag
 function onDown(e){
   if(spaceHeld||isPanning)return;
   document.getElementById("float-toolbar").classList.remove("visible");
@@ -1906,7 +2041,13 @@ function onDown(e){
   }
   snapshot();_snapped=true;_isDragActive=true;
   // Start drag
-  if(hitKind==="freeform"){isDraggingFF=true;ffDragStart={x:pos.x,y:pos.y}}
+  if(hitKind==="freeform"){
+    isDraggingFF=true;ffDragStart={x:pos.x,y:pos.y};
+    _ffDragDelta={dx:0,dy:0};_ffDragOrigCells.clear();_elDragOrigPos.clear();
+    const guids=getGroupUids(hitUid);
+    freeforms.filter(f=>guids.has(f.uid)).forEach(ff=>_ffDragOrigCells.set(ff.uid,new Set(ff.cells)));
+    elements.filter(e=>guids.has(e.uid)).forEach(el=>_elDragOrigPos.set(el.uid,{x:el.x,y:el.y}));
+  }
   else{const el=elements.find(x=>x.uid===hitUid);dragOff={x:pos.x-el.x,y:pos.y-el.y};dragging=hitUid;getCv().style.cursor="grabbing"}
   renderAll();updateSelPanel();
 }
@@ -1926,35 +2067,45 @@ function onMove(e){
     nX=Math.max(0,nX);nY=Math.max(0,nY);if(nX+nW*GS>cW)nW=Math.floor((cW-nX)/GS);if(nY+nH*GS>cH)nH=Math.floor((cH-nY)/GS);
     el.x=nX;el.y=nY;el.w=Math.max(1,nW);el.h=Math.max(1,nH);renderAll();updateSelPanel();return;
   }
-  // Group-aware freeform drag
+  // Group-aware freeform drag — CSS transform fast path
   if(isDraggingFF&&ffDragStart){
     const dx=Math.round((pos.x-ffDragStart.x)/GS),dy=Math.round((pos.y-ffDragStart.y)/GS);
     if(!dx&&!dy)return;
     const guids=getGroupUids(selectedId);
-    // Move all freeforms in group
-    const ffList=freeforms.filter(f=>guids.has(f.uid));
+    // Bounds check against original cells + offset
     let ok=true;
-    const newCellMap=new Map();
-    ffList.forEach(ff=>{const nc=new Set();ff.cells.forEach(k=>{const[gx,gy]=pk(k);const nx=gx+dx,ny=gy+dy;if(nx<0||nx>=config.width||ny<0||ny>=config.height)ok=false;nc.add(ck(nx,ny))});newCellMap.set(ff.uid,nc)});
-    // Move prefabs in group too
+    const ffList=freeforms.filter(f=>guids.has(f.uid));
+    ffList.forEach(ff=>{
+      const orig=_ffDragOrigCells.get(ff.uid)||ff.cells;
+      orig.forEach(k=>{const[gx,gy]=pk(k);const nx=gx+dx,ny=gy+dy;if(nx<0||nx>=config.width||ny<0||ny>=config.height)ok=false});
+    });
     const elList=elements.filter(e=>guids.has(e.uid));
-    elList.forEach(el=>{const nx=el.x+dx*GS,ny=el.y+dy*GS;if(nx<0||nx+el.w*GS>cW||ny<0||ny+el.h*GS>cH)ok=false});
+    elList.forEach(el=>{
+      const orig=_elDragOrigPos.get(el.uid)||{x:el.x,y:el.y};
+      const nx=orig.x+dx*GS,ny=orig.y+dy*GS;
+      if(nx<0||nx+el.w*GS>cW||ny<0||ny+el.h*GS>cH)ok=false;
+    });
     if(ok){
-      ffList.forEach(ff=>ff.cells=newCellMap.get(ff.uid));
-      elList.forEach(el=>{el.x+=dx*GS;el.y+=dy*GS});
-      ffDragStart={x:ffDragStart.x+dx*GS,y:ffDragStart.y+dy*GS};
-      renderAll();updateSelPanel();
+      _ffDragDelta={dx,dy};
+      // Fast path: CSS transform on freeform groups, position update on prefabs
+      ffList.forEach(ff=>{_ffTransforms.set(ff.uid,{dx:dx*GS,dy:dy*GS})});
+      elList.forEach(el=>{
+        const orig=_elDragOrigPos.get(el.uid);
+        if(orig){el.x=orig.x+dx*GS;el.y=orig.y+dy*GS}
+      });
+      renderDragMove(guids);
+      updateSelPanel();
     }
     return;
   }
   // Group-aware prefab drag
   if(!dragging)return;
-  // Note drag
+  // Note drag — fast path
   const dragNote=notes.find(n=>n.uid===dragging);
   if(dragNote){
     dragNote.x=Math.max(0,pos.x-dragOff.x);
     dragNote.y=Math.max(0,pos.y-dragOff.y);
-    renderAll();return;
+    renderDragMove(new Set([dragging]));return;
   }
   const mainEl=elements.find(x=>x.uid===dragging);if(!mainEl)return;
   const guids=getGroupUids(dragging);
@@ -1984,16 +2135,28 @@ function onMove(e){
   if(ok){
     elements.filter(e=>guids.has(e.uid)).forEach(el=>{el.x+=dx;el.y+=dy});
     const gdx=Math.round(dx/GS),gdy=Math.round(dy/GS);
-    freeforms.filter(f=>guids.has(f.uid)).forEach(ff=>{const nc=new Set();ff.cells.forEach(k=>{const[gx,gy]=pk(k);nc.add(ck(gx+gdx,gy+gdy))});ff.cells=nc});
-    renderAll();updateSelPanel();
+    freeforms.filter(f=>guids.has(f.uid)).forEach(ff=>{const nc=new Set();ff.cells.forEach(k=>{const[gx,gy]=pk(k);nc.add(ck(gx+gdx,gy+gdy))});ff.cells=nc;_ffTransforms.set(ff.uid,{dx:0,dy:0})});
+    // Fast path: just update positions on cached DOM
+    renderDragMove(guids);
+    updateSelPanel();
   }
 }
 function onUp(){
   const wasDragging=_isDragActive;
+  const wasFFDrag=isDraggingFF&&_ffDragOrigCells.size>0;
   isDrawing=false;dragging=null;resizing=null;isDraggingFF=false;ffDragStart=null;_isDragActive=false;
   clearGuides();
   getCv().style.cursor=mode==="draw"||mode==="editshape"?"crosshair":mode==="erase"?"":"default";
-  if(wasDragging){updateSelPanel();if(objPanelOpen)renderObjList()}
+  // Commit freeform drag: apply grid offset to original cells
+  if(wasFFDrag&&(_ffDragDelta.dx||_ffDragDelta.dy)){
+    const dx=_ffDragDelta.dx,dy=_ffDragDelta.dy;
+    _ffDragOrigCells.forEach((origCells,uid)=>{
+      const ff=freeforms.find(f=>f.uid===uid);
+      if(ff){const nc=new Set();origCells.forEach(k=>{const[gx,gy]=pk(k);nc.add(ck(gx+dx,gy+dy))});ff.cells=nc}
+    });
+  }
+  _ffDragOrigCells.clear();_elDragOrigPos.clear();_ffDragDelta={dx:0,dy:0};_ffTransforms.clear();
+  if(wasDragging){renderAll();updateSelPanel();if(objPanelOpen)renderObjList()}
 }
 
 // ═══ EDIT MODAL ═══
@@ -2080,7 +2243,7 @@ function deser(d){
     nextUid=d.nextUid||1;nextGroupId=d.nextGroupId||1;
   }
   selectedId=null;selectedType=null;multiSel.clear();
-  buildGrid();applyZoom();document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";renderAll();updateSelPanel();updateInfo();
+  clearDomCache();buildGrid();applyZoom();document.getElementById("compass-display").style.transform="rotate("+DA[config.northDir]+"deg)";renderAll();updateSelPanel();updateInfo();
 }
 function loadSaves(){try{saves=JSON.parse(localStorage.getItem("gardenPlannerSaves")||"[]")}catch(e){saves=[]}}
 function persistSaves(){try{localStorage.setItem("gardenPlannerSaves",JSON.stringify(saves))}catch(e){}}
