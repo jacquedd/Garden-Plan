@@ -94,6 +94,11 @@
     outline: none; text-align: center;
   }
   .float-toolbar .ft-input:focus { border-color: #5D8233; }
+  .float-toolbar .ft-rename-input {
+    font-size: 11px; font-weight: 600; color: #2d4a2d; font-family: inherit;
+    border: 1.5px solid #5D8233; border-radius: 4px; padding: 2px 6px;
+    outline: none; background: #fff; width: 140px; margin-left: 4px;
+  }
   .dim-row { display: flex; gap: 6px; margin-bottom: 6px; }
   .dim-row > div { flex: 1; }
   .dim-row label { display: block; font-size: 10px; font-weight: 600; color: #7b8d7b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -419,6 +424,7 @@
       <div class="ft-row">
         <input type="color" class="ft-color" id="ft-color" onchange="changeSelectedColor(this.value)" title="Color">
         <div class="ft-sep"></div>
+        <button class="ft-btn" id="ft-rename" onclick="ftStartRename()" title="Rename (✏️)">✏️</button>
         <button class="ft-btn" onclick="deleteSelected()" title="Delete (Del)">🗑</button>
         <button class="ft-btn" onclick="duplicateSelected()" title="Duplicate (Ctrl+D)">📋</button>
         <button class="ft-btn" onclick="rotateSelected()" title="Rotate 45° (↻)">↻</button>
@@ -440,7 +446,7 @@
         <label>H</label><input type="number" class="ft-input" id="ft-h" min="1" onchange="setSelDim('h',this.value)" onfocus="this.select()"></span>
       </div>
     </div>
-    <div class="hint" id="hint-text">Click to select • Drag to move • Scroll to zoom • Space+drag to pan • Arrow keys nudge • Ctrl+G group • [ ] layers • Ctrl+D dup • Del remove</div>
+    <div class="hint" id="hint-text">Click to select • Drag to move • Scroll to zoom • Space+drag to pan • Arrow keys nudge • Right-click or Esc to exit mode • Ctrl+G group • [ ] layers • Ctrl+D dup • Del remove</div>
   </div>
 
   <!-- Object Manager Panel -->
@@ -891,6 +897,14 @@ function initPlanner(){
   renderCatTabs();renderList();
   const cv=document.getElementById("canvas");
   cv.addEventListener("mousedown",onDown);cv.addEventListener("mousemove",onMove);cv.addEventListener("mouseup",onUp);cv.addEventListener("mouseleave",onUp);
+  cv.addEventListener("contextmenu",e=>{
+    e.preventDefault();
+    if(mode!=="place"){
+      if(editingFFUid) finishEditShape();
+      else if(drawCells.size>0) commitDrawing();
+      else{setMode("place");renderAll();updateSelPanel()}
+    }
+  });
   cv.addEventListener("touchstart",e=>{e.preventDefault();onDown({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY,target:e.target,stopPropagation(){}})},{passive:false});
   cv.addEventListener("touchmove",e=>{e.preventDefault();onMove({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY})},{passive:false});
   cv.addEventListener("touchend",onUp);
@@ -1081,7 +1095,10 @@ function _ffHash(ff){
   const isSel=selectedType==="freeform"&&ff.uid===selectedId;
   const isHL=isHighlighted(ff.uid);
   const isEditing=editingFFUid===ff.uid;
-  return `${ff.color}|${ff.cells.size}|${isSel?1:0}|${isHL?1:0}|${isEditing?1:0}|${ff.zOff||0}|${ff.label}|${showLabels?1:0}`;
+  // Include a fingerprint of cell positions so nudges/moves trigger rebuild
+  let cfp=0;
+  ff.cells.forEach(k=>{const[gx,gy]=pk(k);cfp=(cfp*31+gx*1000+gy)|0});
+  return `${ff.color}|${ff.cells.size}|${cfp}|${isSel?1:0}|${isHL?1:0}|${isEditing?1:0}|${ff.zOff||0}|${ff.label}|${showLabels?1:0}`;
 }
 
 function doRenderAll(){
@@ -1486,6 +1503,39 @@ function ftDragEnd(){
   document.removeEventListener("mouseup",ftDragEnd);
 }
 
+function ftStartRename(){
+  if(!selectedId)return;
+  const obj=selectedType==="prefab"?elements.find(e=>e.uid===selectedId)
+    :selectedType==="freeform"?freeforms.find(f=>f.uid===selectedId)
+    :notes.find(n=>n.uid===selectedId);
+  if(!obj)return;
+  const isNote=selectedType==="note";
+  const curName=isNote?obj.text:obj.label;
+  const ftLabel=document.getElementById("ft-label");
+  ftLabel.innerHTML=`<span class="ft-grip">⠿</span>`;
+  const inp=document.createElement("input");
+  inp.className="ft-rename-input";inp.id="ft-rename-inp";
+  inp.value=curName;inp.maxLength=50;
+  ftLabel.appendChild(inp);
+  inp.focus();inp.select();
+  inp.onmousedown=e=>e.stopPropagation(); // prevent toolbar drag
+  const commit=()=>{
+    const v=inp.value.trim();
+    if(v&&v!==curName){
+      snapshot();
+      if(isNote) obj.text=v; else obj.label=v;
+      clearDomCache();renderAll();if(objPanelOpen)renderObjList();
+    }
+    updateFloatToolbar();
+  };
+  inp.onblur=commit;
+  inp.onkeydown=e=>{
+    if(e.key==="Enter"){e.preventDefault();commit()}
+    if(e.key==="Escape"){updateFloatToolbar()}
+    e.stopPropagation(); // prevent keyboard shortcuts while typing
+  };
+}
+
 function changeSelectedName(v){
   if(!v.trim())return;
   const obj=selectedType==="prefab"?elements.find(e=>e.uid===selectedId):freeforms.find(f=>f.uid===selectedId);
@@ -1601,7 +1651,7 @@ function nudgeSel(dx,dy){
   freeforms.filter(f=>guids.has(f.uid)).forEach(ff=>{
     const nc=new Set();ff.cells.forEach(k=>{const[gx,gy]=pk(k);nc.add(ck(gx+dx,gy+dy))});ff.cells=nc;
   });
-  renderAll();updateSelPanel();if(objPanelOpen)renderObjList();
+  renderAll(true);updateSelPanel();if(objPanelOpen)renderObjList();
 }
 function rotateSelected(){
   if(selectedType!=="prefab")return;const el=elements.find(e=>e.uid===selectedId);if(!el)return;
@@ -1723,6 +1773,7 @@ function commitDrawing(){
   const col=drawBrush._color||drawBrush.color;
   freeforms.push({uid:nextUid++,id:drawBrush.id,label:drawBrush.label,icon:drawBrush.icon,color:col,cat:drawBrush.cat||"other",groupId:null,zOff:0,cells:new Set(drawCells)});
   drawCells.clear();selectedId=freeforms[freeforms.length-1].uid;selectedType="freeform";
+  setMode("place");
   renderAll();updateSelPanel();updateInfo();
 }
 
@@ -1896,9 +1947,12 @@ function addNote(pos){
   const text=(document.getElementById("note-text").value||"").trim();
   if(!text)return;
   snapshot();
-  notes.push({uid:nextUid++,x:pos.x,y:pos.y,text,w:100,h:40});
+  const n={uid:nextUid++,x:pos.x,y:pos.y,text,w:100,h:40};
+  notes.push(n);
   document.getElementById("note-text").value="";
-  renderAll();updateInfo();
+  selectedId=n.uid;selectedType="note";
+  setMode("place");
+  renderAll();updateSelPanel();updateInfo();
 }
 function deleteNote(uid){snapshot();notes=notes.filter(n=>n.uid!==uid);if(selectedId===uid){selectedId=null;selectedType=null}renderAll();updateSelPanel();updateInfo()}
 // ═══ ALIGNMENT GUIDES ═══
@@ -2518,6 +2572,7 @@ function renderObjList(){
         <span class="or-name" title="Double-click to rename" ondblclick="event.stopPropagation();objRename(${item.uid},'${item.kind}',this)">${escH(item.label)}${grpBadge}</span>
         <span class="or-dims">${dimsText}</span>
         <div class="or-actions">
+          <button class="or-abtn" onclick="event.stopPropagation();objRenamePrompt(${item.uid},'${item.kind}')" title="Rename">✏️</button>
           <button class="or-abtn" onclick="event.stopPropagation();objLayerMove(${item.uid},'${item.kind}',-1)" title="Layer down">▼</button>
           <button class="or-abtn" onclick="event.stopPropagation();objLayerMove(${item.uid},'${item.kind}',1)" title="Layer up">▲</button>
           <button class="or-abtn" onclick="event.stopPropagation();toggleExpandRow(${item.uid})" title="Edit details">⚙</button>
@@ -2625,10 +2680,14 @@ function objDelete(uid,kind){
 }
 
 function objRenamePrompt(uid,kind){
-  const obj=kind==="prefab"?elements.find(e=>e.uid===uid):freeforms.find(f=>f.uid===uid);
+  const obj=kind==="prefab"?elements.find(e=>e.uid===uid)
+    :kind==="freeform"?freeforms.find(f=>f.uid===uid)
+    :notes.find(n=>n.uid===uid);
   if(!obj)return;
-  const n=prompt("Rename object:",obj.label);
-  if(n&&n.trim()){snapshot();obj.label=n.trim();renderAll();updateSelPanel();renderObjList()}
+  const isNote=kind==="note";
+  const cur=isNote?obj.text:obj.label;
+  const n=prompt("Rename:",cur);
+  if(n&&n.trim()){snapshot();if(isNote)obj.text=n.trim();else obj.label=n.trim();clearDomCache();renderAll();updateSelPanel();if(objPanelOpen)renderObjList()}
 }
 
 function objRename(uid,kind,span){
