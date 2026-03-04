@@ -65,8 +65,11 @@
   .float-toolbar .ft-label {
     font-size: 10px; font-weight: 700; color: #2d4a2d; margin-bottom: 4px;
     display: flex; align-items: center; gap: 6px; padding: 0 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px;
+    cursor: grab; user-select: none;
   }
+  .float-toolbar .ft-label:active { cursor: grabbing; }
+  .float-toolbar .ft-grip { color: #bbb; font-size: 10px; margin-right: 2px; letter-spacing: -1px; pointer-events: none; }
   .float-toolbar .ft-label .ft-sub { font-weight: 400; color: #8a9a8a; font-size: 9px; }
   .float-toolbar .ft-row { display: flex; gap: 3px; align-items: center; }
   .float-toolbar .ft-btn {
@@ -411,7 +414,7 @@
       <div class="house-bar" id="house-bar">🏠 HOUSE <span onclick="toggleHouse()" style="margin-left:8px;cursor:pointer;opacity:0.6;font-size:9px" title="Hide house bar">✕</span></div>
     </div>
     <div class="float-toolbar" id="float-toolbar" onmousedown="event.stopPropagation()">
-      <div class="ft-label" id="ft-label"></div>
+      <div class="ft-label" id="ft-label" onmousedown="ftDragStart(event)"><span class="ft-grip">⠿</span></div>
       <div class="ft-row">
         <input type="color" class="ft-color" id="ft-color" onchange="changeSelectedColor(this.value)" title="Color">
         <div class="ft-sep"></div>
@@ -894,7 +897,11 @@ function initPlanner(){
   document.getElementById("chk-labels").onchange=e=>{showLabels=e.target.checked;renderAll()};
   document.getElementById("chk-grid").onchange=e=>{showGrid=e.target.checked;toggleGrid()};
   initZoomPan();
-  window.addEventListener("resize",()=>{if(!config)return;recalcGS();buildGrid();renderAll()});
+  let _resizeTimer;
+  window.addEventListener("resize",()=>{
+    clearTimeout(_resizeTimer);
+    _resizeTimer=setTimeout(()=>{if(!config)return;recalcGS();buildGrid();applyZoom();renderAll();updateSelPanel()},150);
+  });
   updateInfo();
 }
 
@@ -1335,6 +1342,8 @@ function updateFloatToolbar(){
   const ft=document.getElementById("float-toolbar");
   const area=document.querySelector(".canvas-area");
   if(!selectedId||mode!=="place"){ft.classList.remove("visible");return}
+  // Reset user drag when selection changes
+  if(_ftUserSelId!==selectedId){_ftUserPos=null;_ftUserSelId=null}
   // Get object bounds
   let ox,oy,ow,oh,label,icon,color,isLocked=false,hasGroup=false,isFreeform=false;
   if(selectedType==="note"){
@@ -1361,7 +1370,7 @@ function updateFloatToolbar(){
   if(isLocked) badges+=` <span class="ft-badge" style="background:#ECEFF1;color:#546E7A">🔒</span>`;
   if(hasGroup) badges+=` <span class="ft-badge" style="background:#E3F2FD;color:#1565C0">🔗</span>`;
   if(multiSel.size>1) badges+=` <span class="ft-badge" style="background:#FFF3E0;color:#E65100">⊞ ${multiSel.size}</span>`;
-  ftLabel.innerHTML=`${icon} ${label} <span class="ft-sub">${dims}</span>${badges}`;
+  ftLabel.innerHTML=`<span class="ft-grip">⠿</span>${icon} ${label} <span class="ft-sub">${dims}</span>${badges}`;
   // Color
   document.getElementById("ft-color").value=color;
   // Lock button state
@@ -1401,8 +1410,16 @@ function updateFloatToolbar(){
     }
   }
   document.getElementById("ft-dims").style.display=(selectedType==="note")?"none":"flex";
-  // Position: avoid covering the selected object
+  // Position: avoid covering the selected object (skip if user manually dragged for this selection)
   ft.classList.add("visible");
+  if(_ftUserPos&&_ftUserSelId===selectedId){
+    // User manually dragged — keep their position, just clamp to viewport
+    const vL=area.scrollLeft, vT=area.scrollTop;
+    const vR=vL+area.clientWidth, vB=vT+area.clientHeight;
+    ft.style.left=Math.max(vL+4,Math.min(vR-ft.offsetWidth-4,_ftUserPos.left))+"px";
+    ft.style.top=Math.max(vT+4,Math.min(vB-ft.offsetHeight-4,_ftUserPos.top))+"px";
+    return;
+  }
   const ftW=ft.offsetWidth, ftH=ft.offsetHeight;
   const cv=document.getElementById("canvas");
   const cvOff=cv.offsetLeft||0, cvTop=cv.offsetTop||0;
@@ -1431,6 +1448,43 @@ function updateFloatToolbar(){
   ft.style.left=left+"px";
   ft.style.top=top+"px";
 }
+// ─── Float toolbar dragging ───
+let _ftUserPos=null, _ftUserSelId=null; // track user-set position per selection
+let _ftDragging=false, _ftDragOff={x:0,y:0};
+function ftDragStart(e){
+  if(e.button!==0)return;
+  _ftDragging=true;
+  const ft=document.getElementById("float-toolbar");
+  const area=document.querySelector(".canvas-area");
+  const aRect=area.getBoundingClientRect();
+  // Store offset from mouse to toolbar's current position in canvas-area coords
+  _ftDragOff={x:e.clientX-aRect.left+area.scrollLeft-ft.offsetLeft, y:e.clientY-aRect.top+area.scrollTop-ft.offsetTop};
+  document.addEventListener("mousemove",ftDragMove);
+  document.addEventListener("mouseup",ftDragEnd);
+  e.preventDefault();
+}
+function ftDragMove(e){
+  if(!_ftDragging)return;
+  const ft=document.getElementById("float-toolbar");
+  const area=document.querySelector(".canvas-area");
+  const aRect=area.getBoundingClientRect();
+  const vL=area.scrollLeft, vT=area.scrollTop;
+  const vR=vL+area.clientWidth, vB=vT+area.clientHeight;
+  let left=e.clientX-aRect.left+area.scrollLeft-_ftDragOff.x;
+  let top=e.clientY-aRect.top+area.scrollTop-_ftDragOff.y;
+  left=Math.max(vL+4,Math.min(vR-ft.offsetWidth-4,left));
+  top=Math.max(vT+4,Math.min(vB-ft.offsetHeight-4,top));
+  ft.style.left=left+"px";
+  ft.style.top=top+"px";
+  _ftUserPos={left,top};
+  _ftUserSelId=selectedId;
+}
+function ftDragEnd(){
+  _ftDragging=false;
+  document.removeEventListener("mousemove",ftDragMove);
+  document.removeEventListener("mouseup",ftDragEnd);
+}
+
 function changeSelectedName(v){
   if(!v.trim())return;
   const obj=selectedType==="prefab"?elements.find(e=>e.uid===selectedId):freeforms.find(f=>f.uid===selectedId);
@@ -2180,11 +2234,31 @@ function recalcGS(){
   const oldGS=GS;
   calcGS();
   if(oldGS!==GS&&oldGS>0){
+    const ratio=GS/oldGS;
     // Convert element pixel positions to new GS
     elements.forEach(el=>{
       const gx=Math.round(el.x/oldGS), gy=Math.round(el.y/oldGS);
       el.x=gx*GS; el.y=gy*GS;
     });
+    // Convert note pixel positions to new GS
+    notes.forEach(n=>{
+      n.x=n.x*ratio; n.y=n.y*ratio;
+    });
+    // Freeform cells are grid-based (not pixel), no rescaling needed
+    // Clear caches since all DOM sizes change
+    clearDomCache();
+    // Rescale undo/redo stacks
+    [undoStack,redoStack].forEach(stack=>{
+      stack.forEach(s=>{
+        s.elements.forEach(el=>{
+          const gx=Math.round(el.x/oldGS), gy=Math.round(el.y/oldGS);
+          el.x=gx*GS; el.y=gy*GS;
+        });
+        if(s.notes) s.notes.forEach(n=>{n.x=n.x*ratio; n.y=n.y*ratio});
+      });
+    });
+    // Reset float toolbar position
+    _ftUserPos=null;_ftUserSelId=null;
   }
 }
 
