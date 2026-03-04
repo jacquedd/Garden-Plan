@@ -449,8 +449,8 @@
         <button class="ft-btn" id="ft-convert" style="display:none" onclick="convertToFreeform()" title="Convert to Freeform">🔄</button>
       </div>
       <div class="ft-dims" id="ft-dims">
-        <label>X</label><input type="number" class="ft-input" id="ft-x" min="0" onchange="setSelPos('x',this.value)" onfocus="this.select()">
-        <label>Y</label><input type="number" class="ft-input" id="ft-y" min="0" onchange="setSelPos('y',this.value)" onfocus="this.select()">
+        <label>X</label><input type="number" class="ft-input" id="ft-x" min="0" step="0.5" onchange="setSelPos('x',this.value)" onfocus="this.select()">
+        <label>Y</label><input type="number" class="ft-input" id="ft-y" min="0" step="0.5" onchange="setSelPos('y',this.value)" onfocus="this.select()">
         <span id="ft-wh-group"><label>W</label><input type="number" class="ft-input" id="ft-w" min="1" onchange="setSelDim('w',this.value)" onfocus="this.select()">
         <label>H</label><input type="number" class="ft-input" id="ft-h" min="1" onchange="setSelDim('h',this.value)" onfocus="this.select()"></span>
       </div>
@@ -847,7 +847,7 @@ function updateUndoButtons(){
   if(rb){rb.disabled=!redoStack.length;rb.style.opacity=redoStack.length?"1":"0.4"}
 }
 
-function snap(v){return Math.round(v/GS)*GS}
+function snap(v){const half=GS/2;return Math.round(v/half)*half}
 function ck(a,b){return a+","+b}
 function pk(k){const p=k.split(",");return[+p[0],+p[1]]}
 
@@ -1331,8 +1331,8 @@ function updateSelPanel(){
     const layerLbl=(LAYER[el.cat]||1)*10+(el.zOff||0);
     document.getElementById("sel-info").textContent=`${el.w}×${el.h} ft • ${el.rot||0}° • z:${layerLbl}${el.locked?" • 🔒 Locked":""}`;
     document.getElementById("pos-row").style.display="flex";
-    document.getElementById("sel-x").value=Math.round(el.x/GS);
-    document.getElementById("sel-y").value=Math.round(el.y/GS);
+    document.getElementById("sel-x").value=Math.round(el.x/GS*2)/2;
+    document.getElementById("sel-y").value=Math.round(el.y/GS*2)/2;
     document.getElementById("dim-row").style.display="flex";document.getElementById("rotate-btn").style.display="";document.getElementById("rotate-ccw-btn").style.display="";
     document.getElementById("sel-width").value=el.w;document.getElementById("sel-height").value=el.h;
     document.getElementById("sel-color").value=el.color;
@@ -1417,8 +1417,8 @@ function updateFloatToolbar(){
   if(selectedType==="prefab"){
     const el=elements.find(e=>e.uid===selectedId);
     if(el){
-      document.getElementById("ft-x").value=Math.round(el.x/GS);
-      document.getElementById("ft-y").value=Math.round(el.y/GS);
+      document.getElementById("ft-x").value=Math.round(el.x/GS*2)/2;
+      document.getElementById("ft-y").value=Math.round(el.y/GS*2)/2;
       document.getElementById("ft-w").value=el.w;
       document.getElementById("ft-h").value=el.h;
       whGroup.style.display="contents";
@@ -1436,8 +1436,8 @@ function updateFloatToolbar(){
     // note
     const n=notes.find(x=>x.uid===selectedId);
     if(n){
-      document.getElementById("ft-x").value=Math.round(n.x/GS);
-      document.getElementById("ft-y").value=Math.round(n.y/GS);
+      document.getElementById("ft-x").value=Math.round(n.x/GS*2)/2;
+      document.getElementById("ft-y").value=Math.round(n.y/GS*2)/2;
       whGroup.style.display="none";
     }
   }
@@ -1701,18 +1701,22 @@ function setSelDim(a,v){
 }
 function setSelPos(axis,v){
   if(!selectedId)return;
-  const ft=Math.max(0,parseInt(v)||0);
+  const ft=Math.max(0,parseFloat(v)||0);
   const cW=config.width*GS,cH=config.height*GS;
   if(selectedType==="prefab"){
     const el=elements.find(e=>e.uid===selectedId);if(!el)return;
     snapshot();
     if(axis==="x") el.x=Math.min(cW-el.w*GS,ft*GS);
     else el.y=Math.min(cH-el.h*GS,ft*GS);
+  } else if(selectedType==="note"){
+    const n=notes.find(x=>x.uid===selectedId);if(!n)return;
+    snapshot();
+    if(axis==="x") n.x=ft*GS; else n.y=ft*GS;
   } else {
     const ff=freeforms.find(f=>f.uid===selectedId);if(!ff)return;
     let mnX=1e9,mnY=1e9;
     ff.cells.forEach(k=>{const[gx,gy]=pk(k);if(gx<mnX)mnX=gx;if(gy<mnY)mnY=gy});
-    const dx=axis==="x"?ft-mnX:0, dy=axis==="y"?ft-mnY:0;
+    const dx=axis==="x"?Math.round(ft)-mnX:0, dy=axis==="y"?Math.round(ft)-mnY:0;
     if(!dx&&!dy)return;
     snapshot();
     const nc=new Set();let ok=true;
@@ -2420,7 +2424,7 @@ function ser(){
   // Compact format: short keys, omit defaults
   const pt=PREFAB_TYPES;
   const ce=elements.map(e=>{
-    const o={u:e.uid,i:e.id,x:Math.round(e.x/GS),y:Math.round(e.y/GS),w:e.w,h:e.h};
+    const o={u:e.uid,i:e.id,x:Math.round(e.x/GS*2)/2,y:Math.round(e.y/GS*2)/2,w:e.w,h:e.h};
     // Only store non-default values
     const ref=pt.find(p=>p.id===e.id);
     if(!ref||e.label!==ref.label) o.l=e.label;
@@ -2573,7 +2577,7 @@ function renderObjList(){
   const items=[];
   elements.forEach(el=>{
     items.push({kind:"prefab",uid:el.uid,icon:el.icon,label:el.label,color:el.color,cat:el.cat||"other",
-      x:Math.round(el.x/GS),y:Math.round(el.y/GS),w:el.w,h:el.h,groupId:el.groupId||null,zOff:el.zOff||0});
+      x:Math.round(el.x/GS*2)/2,y:Math.round(el.y/GS*2)/2,w:el.w,h:el.h,groupId:el.groupId||null,zOff:el.zOff||0});
   });
   freeforms.forEach(ff=>{
     let mnX=1e9,mnY=1e9;
@@ -2682,8 +2686,8 @@ function renderObjList(){
       exp.className="or-expand"+(isExpanded?"":" hidden");
       if(item.kind==="prefab"){
         exp.innerHTML=`
-          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">X</div><input class="or-field" type="number" value="${item.x}" min="0" onchange="objSetPos(${item.uid},'x',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
-          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">Y</div><input class="or-field" type="number" value="${item.y}" min="0" onchange="objSetPos(${item.uid},'y',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
+          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">X</div><input class="or-field" type="number" value="${item.x}" min="0" step="0.5" onchange="objSetPos(${item.uid},'x',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
+          <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">Y</div><input class="or-field" type="number" value="${item.y}" min="0" step="0.5" onchange="objSetPos(${item.uid},'y',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
           <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">W</div><input class="or-field" type="number" value="${item.w}" min="1" onchange="objSetDim(${item.uid},'w',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>
           <div style="display:flex;flex-direction:column;align-items:center"><div class="or-label">H</div><input class="or-field" type="number" value="${item.h}" min="1" onchange="objSetDim(${item.uid},'h',this.value)" onfocus="this.select()" onclick="event.stopPropagation()"></div>`;
       } else {
@@ -2715,7 +2719,7 @@ function scrollToElement(item){
 function objSetPos(uid,axis,val){
   const el=elements.find(e=>e.uid===uid);if(!el)return;
   snapshot();
-  const v=Math.max(0,parseInt(val)||0);
+  const v=Math.max(0,parseFloat(val)||0);
   const cW=config.width*GS,cH=config.height*GS;
   if(axis==="x") el.x=Math.min(cW-el.w*GS,v*GS);
   else el.y=Math.min(cH-el.h*GS,v*GS);
