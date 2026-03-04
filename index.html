@@ -250,9 +250,10 @@
   .placed-el.locked { opacity: 0.7; cursor: not-allowed !important; }
   .placed-el.locked::after { content: "🔒"; position: absolute; top: 2px; right: 2px; font-size: 8px; }
   /* Fence */
-  .placed-el.fence { background: transparent !important; border: 3px solid #8D6E63 !important; border-radius: 2px !important; opacity: 1 !important; }
+  .placed-el.fence { background: transparent !important; border: 3px solid #8D6E63 !important; border-radius: 2px !important; opacity: 1 !important; pointer-events: none; }
   .placed-el.fence.selected { border: 3px solid #8D6E63 !important; outline: 2.5px solid #FFD600; outline-offset: 1px; box-shadow: 0 0 0 5px rgba(255,214,0,0.25) !important; }
   .placed-el.fence .fence-post { position: absolute; width: 6px; height: 6px; background: #6D4C41; border-radius: 50%; z-index: 2; }
+  .placed-el.fence .resize-handle, .placed-el.fence .rotate-handle { pointer-events: auto; }
   .placed-el.fence-gate { background: transparent !important; border: none !important; border-radius: 0 !important; opacity: 1 !important; }
   .placed-el.fence-gate .gate-opening { position: absolute; inset: 0; border-top: 3px dashed #8D6E63; border-bottom: 3px dashed #8D6E63; display:flex; align-items:center; justify-content:center; }
   .placed-el.fence-gate.rot90 .gate-opening { border-top: none; border-bottom: none; border-left: 3px dashed #8D6E63; border-right: 3px dashed #8D6E63; }
@@ -2065,6 +2066,13 @@ function onDown(e){
   });
   elements.forEach(el=>{
     if(pos.x>=el.x&&pos.x<=el.x+el.w*GS&&pos.y>=el.y&&pos.y<=el.y+el.h*GS){
+      // Fences: only hit on the border region, not the interior
+      if(FENCE_IDS.has(el.id)){
+        const bdr=Math.max(8, GS*0.4); // border hit zone in px
+        const dx1=pos.x-el.x, dy1=pos.y-el.y;
+        const dx2=el.x+el.w*GS-pos.x, dy2=el.y+el.h*GS-pos.y;
+        if(Math.min(dx1,dx2)>bdr && Math.min(dy1,dy2)>bdr) return; // inside, skip
+      }
       const z=(LAYER[el.cat]||1)*10+(el.zOff||0);
       hits.push({uid:el.uid,kind:"prefab",z});
     }
