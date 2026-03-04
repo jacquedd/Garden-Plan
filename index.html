@@ -97,7 +97,16 @@
   .float-toolbar .ft-rename-input {
     font-size: 11px; font-weight: 600; color: #2d4a2d; font-family: inherit;
     border: 1.5px solid #5D8233; border-radius: 4px; padding: 2px 6px;
-    outline: none; background: #fff; width: 140px; margin-left: 4px;
+    outline: none; background: #fff; width: 120px;
+  }
+  .float-toolbar .ft-icon-btn {
+    font-size: 16px; width: 28px; height: 26px; border: 1.5px solid #d4dcd4;
+    border-radius: 4px; background: #fff; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .float-toolbar .ft-icon-btn:hover { border-color: #5D8233; background: #eef5e5; }
+  .float-toolbar .ft-edit-row {
+    display: flex; align-items: center; gap: 4px; margin-top: 4px;
   }
   .dim-row { display: flex; gap: 6px; margin-bottom: 6px; }
   .dim-row > div { flex: 1; }
@@ -436,7 +445,7 @@
         <button class="ft-btn" onclick="layerMove(-1)" title="Send Back">▼</button>
         <button class="ft-btn" onclick="layerMove(1)" title="Bring Forward">▲</button>
         <div class="ft-sep" id="ft-sep-extra"></div>
-        <button class="ft-btn" id="ft-edit-shape" style="display:none" onclick="startEditShape()" title="Edit Shape">✏️</button>
+        <button class="ft-btn" id="ft-edit-shape" style="display:none" onclick="startEditShape()" title="Edit Shape"><span style="display:inline-block;width:12px;height:12px;border:1.5px dashed #6b7c6b;border-radius:2px"></span></button>
         <button class="ft-btn" id="ft-convert" style="display:none" onclick="convertToFreeform()" title="Convert to Freeform">🔄</button>
       </div>
       <div class="ft-dims" id="ft-dims">
@@ -1359,6 +1368,11 @@ function updateSelPanel(){
 function updateFloatToolbar(){
   const ft=document.getElementById("float-toolbar");
   const area=document.querySelector(".canvas-area");
+  // Clean up edit mode elements
+  const editRow=document.getElementById("ft-edit-row");if(editRow)editRow.remove();
+  const iconGrid=document.getElementById("ft-icon-grid");if(iconGrid)iconGrid.remove();
+  ft.querySelectorAll(".ft-row,.ft-dims").forEach(r=>r.style.display="");
+  _ftEditMode=false;
   if(!selectedId||mode!=="place"){ft.classList.remove("visible");return}
   // Reset user drag when selection changes
   if(_ftUserSelId!==selectedId){_ftUserPos=null;_ftUserSelId=null}
@@ -1511,29 +1525,105 @@ function ftStartRename(){
   if(!obj)return;
   const isNote=selectedType==="note";
   const curName=isNote?obj.text:obj.label;
-  const ftLabel=document.getElementById("ft-label");
-  ftLabel.innerHTML=`<span class="ft-grip">⠿</span>`;
+  const curIcon=isNote?"📝":(obj.icon||"");
+  const ft=document.getElementById("float-toolbar");
+  // Hide normal rows, show edit row
+  const editRow=document.createElement("div");
+  editRow.className="ft-edit-row";editRow.id="ft-edit-row";
+  // Icon button (not for notes)
+  if(!isNote){
+    const iconBtn=document.createElement("button");
+    iconBtn.className="ft-icon-btn";iconBtn.id="ft-icon-pick";
+    iconBtn.textContent=curIcon;iconBtn.title="Change icon";
+    iconBtn.onmousedown=e=>e.stopPropagation();
+    iconBtn.onclick=e=>{e.stopPropagation();ftShowIconPicker(obj)};
+    editRow.appendChild(iconBtn);
+  }
+  // Name input
   const inp=document.createElement("input");
   inp.className="ft-rename-input";inp.id="ft-rename-inp";
   inp.value=curName;inp.maxLength=50;
-  ftLabel.appendChild(inp);
+  inp.onmousedown=e=>e.stopPropagation();
+  editRow.appendChild(inp);
+  // Done button
+  const doneBtn=document.createElement("button");
+  doneBtn.className="ft-btn";doneBtn.textContent="✓";doneBtn.title="Done";
+  doneBtn.style.cssText="color:#5D8233;font-weight:700;font-size:14px";
+  doneBtn.onmousedown=e=>e.stopPropagation();
+  doneBtn.onclick=()=>ftCommitRename(obj,isNote);
+  editRow.appendChild(doneBtn);
+  // Insert after label, hide action rows
+  const ftLabel=document.getElementById("ft-label");
+  ftLabel.innerHTML=`<span class="ft-grip">⠿</span> <span style="font-size:10px;color:#8a9a8a">Edit:</span>`;
+  ft.querySelectorAll(".ft-row,.ft-dims").forEach(r=>r.style.display="none");
+  ftLabel.after(editRow);
+  _ftEditMode=true;
   inp.focus();inp.select();
-  inp.onmousedown=e=>e.stopPropagation(); // prevent toolbar drag
-  const commit=()=>{
-    const v=inp.value.trim();
-    if(v&&v!==curName){
-      snapshot();
-      if(isNote) obj.text=v; else obj.label=v;
-      clearDomCache();renderAll();if(objPanelOpen)renderObjList();
-    }
-    updateFloatToolbar();
-  };
-  inp.onblur=commit;
   inp.onkeydown=e=>{
-    if(e.key==="Enter"){e.preventDefault();commit()}
-    if(e.key==="Escape"){updateFloatToolbar()}
-    e.stopPropagation(); // prevent keyboard shortcuts while typing
+    if(e.key==="Enter"){e.preventDefault();ftCommitRename(obj,isNote)}
+    if(e.key==="Escape"){_ftEditMode=false;updateFloatToolbar()}
+    e.stopPropagation();
   };
+}
+let _ftEditMode=false;
+function ftCommitRename(obj,isNote){
+  const inp=document.getElementById("ft-rename-inp");
+  if(!inp){_ftEditMode=false;updateFloatToolbar();return}
+  const v=inp.value.trim();
+  const curName=isNote?obj.text:obj.label;
+  if(v&&v!==curName){
+    snapshot();
+    if(isNote) obj.text=v; else obj.label=v;
+    clearDomCache();renderAll();if(objPanelOpen)renderObjList();
+  }
+  _ftEditMode=false;
+  updateFloatToolbar();
+}
+function ftShowIconPicker(obj){
+  // Remove existing picker if any
+  let existing=document.getElementById("ft-icon-grid");
+  if(existing){existing.remove();return}
+  const editRow=document.getElementById("ft-edit-row");
+  if(!editRow)return;
+  const grid=document.createElement("div");
+  grid.id="ft-icon-grid";
+  grid.style.cssText="display:flex;flex-wrap:wrap;gap:2px;max-width:240px;max-height:160px;overflow-y:auto;padding:6px;background:#fff;border:1.5px solid #d4dcd4;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);margin-top:4px;";
+  grid.onmousedown=e=>e.stopPropagation();
+  // Search
+  const search=document.createElement("input");
+  search.type="text";search.placeholder="Search icons…";
+  search.style.cssText="width:100%;font-size:10px;padding:3px 6px;border:1px solid #d4dcd4;border-radius:4px;margin-bottom:4px;outline:none;font-family:inherit";
+  search.onmousedown=e=>e.stopPropagation();
+  search.onkeydown=e=>e.stopPropagation();
+  grid.appendChild(search);
+  const iconsDiv=document.createElement("div");
+  iconsDiv.style.cssText="display:flex;flex-wrap:wrap;gap:2px";
+  grid.appendChild(iconsDiv);
+  function renderIcons(filter){
+    iconsDiv.innerHTML="";
+    const f=filter.toLowerCase();
+    let shown=0;
+    ICON_LIB.forEach(ic=>{
+      if(f&&!ic.t.includes(f))return;
+      if(shown>=80)return;shown++;
+      const btn=document.createElement("button");
+      btn.style.cssText="width:26px;height:26px;font-size:14px;border:1px solid #eee;border-radius:3px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0";
+      btn.textContent=ic.e;btn.title=ic.t;
+      btn.onmousedown=e=>e.stopPropagation();
+      btn.onclick=()=>{
+        snapshot();obj.icon=ic.e;
+        const pickBtn=document.getElementById("ft-icon-pick");
+        if(pickBtn) pickBtn.textContent=ic.e;
+        grid.remove();
+        clearDomCache();renderAll();if(objPanelOpen)renderObjList();
+      };
+      iconsDiv.appendChild(btn);
+    });
+  }
+  renderIcons("");
+  search.oninput=()=>renderIcons(search.value);
+  editRow.after(grid);
+  search.focus();
 }
 
 function changeSelectedName(v){
